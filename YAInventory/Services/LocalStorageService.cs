@@ -14,10 +14,11 @@ namespace YAInventory.Services
     /// Manages all local file storage:
     ///   C:\YA Inventory Management\
     ///     config.json      — app settings
-    ///     products.csv     — product catalogue
-    ///     sales.csv        — transaction history
+    ///     products.csv     — product catalogue  (AES-256 encrypted)
+    ///     sales.csv        — transaction history (AES-256 encrypted)
     ///     images\          — logos / product images
     /// All methods are thread-safe via SemaphoreSlim.
+    /// CSV files are encrypted on disk with a fixed application password.
     /// </summary>
     public class LocalStorageService
     {
@@ -28,6 +29,9 @@ namespace YAInventory.Services
         private static readonly string ProductsFile = Path.Combine(RootFolder, "products.csv");
         private static readonly string SalesFile    = Path.Combine(RootFolder, "sales.csv");
         public  static readonly string ImagesFolder = Path.Combine(RootFolder, "images");
+
+        /// <summary>Application-level encryption password for local CSV files.</summary>
+        private const string EncryptionPassword = "801697";
 
         private readonly SemaphoreSlim _lock = new(1, 1);
 
@@ -40,11 +44,62 @@ namespace YAInventory.Services
             if (!File.Exists(ConfigFile))
                 SaveSettings(new AppSettings());
 
-            if (!File.Exists(ProductsFile))
-                File.WriteAllText(ProductsFile, string.Empty);
+            // CSV files are NOT created empty here.
+            // If they don't exist, the app will bootstrap from MongoDB.
+            // If MongoDB is not configured either, empty files are created
+            // on the first local save.
 
-            if (!File.Exists(SalesFile))
-                File.WriteAllText(SalesFile, string.Empty);
+            // Migrate any existing plain-text CSV files to encrypted format
+            MigratePlainTextIfNeeded(ProductsFile);
+            MigratePlainTextIfNeeded(SalesFile);
+        }
+
+        /// <summary>Returns true if the local products CSV exists and has data.</summary>
+        public bool HasLocalProductsFile() =>
+            File.Exists(ProductsFile) && new FileInfo(ProductsFile).Length > 0;
+
+        /// <summary>Returns true if the local sales CSV exists and has data.</summary>
+        public bool HasLocalSalesFile() =>
+            File.Exists(SalesFile) && new FileInfo(SalesFile).Length > 0;
+
+        /// <summary>
+        /// Detects whether a CSV file is still in plain-text format (pre-encryption era)
+        /// and migrates it to encrypted format. Keeps a .bak backup of the original.
+        /// </summary>
+        private void MigratePlainTextIfNeeded(string filePath)
+        {
+            if (!File.Exists(filePath) || new FileInfo(filePath).Length == 0)
+                return;
+
+            // Try to decrypt — if it works, the file is already encrypted
+            try
+            {
+                CryptoHelper.DecryptFromFile(filePath, EncryptionPassword);
+                return; // Already encrypted, nothing to do
+            }
+            catch
+            {
+                // Decryption failed → file is probably plain text
+            }
+
+            // Read the plain-text content, back it up, and re-save encrypted
+            try
+            {
+                string plainCsv = File.ReadAllText(filePath);
+                if (string.IsNullOrWhiteSpace(plainCsv))
+                    return;
+
+                // Keep a backup just in case
+                string backupPath = filePath + ".bak";
+                File.Copy(filePath, backupPath, overwrite: true);
+
+                // Encrypt and overwrite
+                CryptoHelper.EncryptToFile(filePath, plainCsv, EncryptionPassword);
+            }
+            catch
+            {
+                // If migration fails, leave the file untouched
+            }
         }
 
         // ── Settings ───────────────────────────────────────────────────────
@@ -74,6 +129,11 @@ namespace YAInventory.Services
                 if (!File.Exists(ProductsFile) || new FileInfo(ProductsFile).Length == 0)
                     return new List<Product>();
 
+                // Decrypt file → plain CSV text
+                string csvText = CryptoHelper.DecryptFromFile(ProductsFile, EncryptionPassword);
+                if (string.IsNullOrWhiteSpace(csvText))
+                    return new List<Product>();
+
                 var config = new CsvConfiguration(CultureInfo.InvariantCulture)
                 {
                     HasHeaderRecord = true,
@@ -81,7 +141,7 @@ namespace YAInventory.Services
                     HeaderValidated = null
                 };
 
-                using var reader = new StreamReader(ProductsFile);
+                using var reader = new StringReader(csvText);
                 using var csv    = new CsvReader(reader, config);
                 return csv.GetRecords<Product>().ToList();
             }
@@ -99,9 +159,16 @@ namespace YAInventory.Services
                     HasHeaderRecord = true
                 };
 
-                using var writer = new StreamWriter(ProductsFile, append: false);
-                using var csv    = new CsvWriter(writer, config);
+                // Write CSV to in-memory string
+                using var stringWriter = new StringWriter();
+                using var csv          = new CsvWriter(stringWriter, config);
                 await csv.WriteRecordsAsync(products);
+                await csv.FlushAsync();
+
+                string csvText = stringWriter.ToString();
+
+                // Encrypt and write to disk
+                CryptoHelper.EncryptToFile(ProductsFile, csvText, EncryptionPassword);
             }
             finally { _lock.Release(); }
         }
@@ -124,13 +191,13 @@ namespace YAInventory.Services
         public async Task DeleteProductAsync(string barcode)
         {
             var products = await LoadProductsAsync();
-            var product  = products.FirstOrDefault(p => p.Barcode == barcode);
-            if (product is null) return;
-
-            // Soft delete — keep record, zero quantity
-            product.IsDeleted  = true;
-            product.UpdatedAt  = DateTime.UtcNow;
-            await SaveProductsAsync(products);
+            var initialCount = products.Count;
+            
+            // Hard delete — actually remove it from the list
+            products.RemoveAll(p => p.Barcode == barcode);
+            
+            if (products.Count < initialCount)
+                await SaveProductsAsync(products);
         }
 
         // ── Sales ──────────────────────────────────────────────────────────
@@ -142,6 +209,11 @@ namespace YAInventory.Services
                 if (!File.Exists(SalesFile) || new FileInfo(SalesFile).Length == 0)
                     return new List<Sale>();
 
+                // Decrypt file → plain CSV text
+                string csvText = CryptoHelper.DecryptFromFile(SalesFile, EncryptionPassword);
+                if (string.IsNullOrWhiteSpace(csvText))
+                    return new List<Sale>();
+
                 var config = new CsvConfiguration(CultureInfo.InvariantCulture)
                 {
                     HasHeaderRecord = true,
@@ -149,7 +221,7 @@ namespace YAInventory.Services
                     HeaderValidated = null
                 };
 
-                using var reader = new StreamReader(SalesFile);
+                using var reader = new StringReader(csvText);
                 using var csv    = new CsvReader(reader, config);
                 var sales = csv.GetRecords<Sale>().ToList();
 
@@ -172,34 +244,64 @@ namespace YAInventory.Services
 
         public async Task AppendSaleAsync(Sale sale)
         {
+            // Load all existing sales, add the new one, re-encrypt the entire file.
+            // This is necessary because you cannot append to an encrypted stream.
+            var allSales = await LoadSalesAsync();
+
+            sale.ItemsJson = JsonConvert.SerializeObject(sale.Items);
+            allSales.Add(sale);
+
             await _lock.WaitAsync();
             try
             {
-                sale.ItemsJson = JsonConvert.SerializeObject(sale.Items);
-                bool fileHasContent = File.Exists(SalesFile) && new FileInfo(SalesFile).Length > 0;
-
                 var config = new CsvConfiguration(CultureInfo.InvariantCulture)
                 {
-                    HasHeaderRecord = !fileHasContent
+                    HasHeaderRecord = true
                 };
 
-                using var writer = new StreamWriter(SalesFile, append: true);
-                using var csv    = new CsvWriter(writer, config);
+                using var stringWriter = new StringWriter();
+                using var csv          = new CsvWriter(stringWriter, config);
 
-                if (!fileHasContent)
-                {
-                    // First record ever — write header row then the data row
-                    csv.WriteHeader<Sale>();
-                    await csv.NextRecordAsync();
-                }
-                else
-                {
-                    // File already has rows — start a new line before appending
-                    await writer.WriteLineAsync();
-                }
+                // Serialise ItemsJson for every sale before writing
+                foreach (var s in allSales)
+                    s.ItemsJson = JsonConvert.SerializeObject(s.Items);
 
-                csv.WriteRecord(sale);
+                await csv.WriteRecordsAsync(allSales);
                 await csv.FlushAsync();
+
+                string csvText = stringWriter.ToString();
+                CryptoHelper.EncryptToFile(SalesFile, csvText, EncryptionPassword);
+            }
+            finally { _lock.Release(); }
+        }
+
+        /// <summary>
+        /// Overwrites the entire sales CSV with the supplied list (used by sync merge).
+        /// </summary>
+        public async Task SaveSalesAsync(IEnumerable<Sale> sales)
+        {
+            await _lock.WaitAsync();
+            try
+            {
+                var config = new CsvConfiguration(CultureInfo.InvariantCulture)
+                {
+                    HasHeaderRecord = true
+                };
+
+                var allSales = sales.ToList();
+
+                using var stringWriter = new StringWriter();
+                using var csv          = new CsvWriter(stringWriter, config);
+
+                // Serialise ItemsJson for every sale before writing
+                foreach (var s in allSales)
+                    s.ItemsJson = JsonConvert.SerializeObject(s.Items);
+
+                await csv.WriteRecordsAsync(allSales);
+                await csv.FlushAsync();
+
+                string csvText = stringWriter.ToString();
+                CryptoHelper.EncryptToFile(SalesFile, csvText, EncryptionPassword);
             }
             finally { _lock.Release(); }
         }

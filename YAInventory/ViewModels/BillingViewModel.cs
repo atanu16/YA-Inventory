@@ -141,10 +141,21 @@ namespace YAInventory.ViewModels
             var existing = CartItems.FirstOrDefault(c => c.Barcode == product.Barcode);
             if (existing != null)
             {
+                if (existing.Quantity >= product.Quantity)
+                {
+                    _main.Notify($"Cannot add more. Only {product.Quantity} in stock.", "Warning");
+                    return;
+                }
                 existing.Quantity++;
             }
             else
             {
+                if (product.Quantity <= 0)
+                {
+                    _main.Notify("Out of stock.", "Warning");
+                    return;
+                }
+
                 CartItems.Add(new CartItem
                 {
                     ProductId       = product.ProductId,
@@ -156,6 +167,9 @@ namespace YAInventory.ViewModels
                 });
             }
 
+            // Clear search field after successful add
+            ProductSearch = string.Empty;
+            
             RecalcTotals();
         }
 
@@ -169,11 +183,24 @@ namespace YAInventory.ViewModels
         private void ChangeQty(CartItem? item, int delta)
         {
             if (item is null) return;
+
+            // Enforce stock limits when increasing quantity
+            if (delta > 0)
+            {
+                var product = _allProducts.FirstOrDefault(p => p.Barcode == item.Barcode);
+                if (product != null && item.Quantity + delta > product.Quantity)
+                {
+                    _main.Notify($"Cannot add more. Only {product.Quantity} in stock.", "Warning");
+                    return;
+                }
+            }
+
             int newQty = item.Quantity + delta;
             if (newQty <= 0)
                 CartItems.Remove(item);
             else
                 item.Quantity = newQty;
+                
             RecalcTotals();
         }
 

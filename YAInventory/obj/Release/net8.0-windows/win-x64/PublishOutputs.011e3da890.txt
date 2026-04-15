@@ -1,0 +1,2 @@
+C:\Projects\YA Inventory\YAInventory\publish\YAInventory.pdb
+C:\Projects\YA Inventory\YAInventory\publish\YAInventory.exe

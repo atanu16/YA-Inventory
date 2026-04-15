@@ -1,5 +1,4 @@
 using CsvHelper.Configuration.Attributes;
-using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 using System;
 using System.Collections.Generic;
@@ -8,11 +7,12 @@ namespace YAInventory.Models
 {
     /// <summary>
     /// Represents a completed sale / billing transaction.
+    /// MongoDB auto-manages _id — we use SaleId as the upsert key.
     /// </summary>
+    [BsonIgnoreExtraElements]
     public class Sale
     {
-        [BsonId]
-        [BsonRepresentation(BsonType.ObjectId)]
+        [BsonIgnore]
         [Ignore]
         public string? MongoId { get; set; }
 

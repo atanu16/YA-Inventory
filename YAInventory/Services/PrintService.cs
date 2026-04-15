@@ -58,14 +58,15 @@ namespace YAInventory.Services
             int w = PaperWidthPx - Margin * 2;
             _printY = Margin;
 
-            _fontBold   = new Font("Courier New", 9,  FontStyle.Bold);
+            var fontTitle = new Font("Courier New", 12, FontStyle.Bold);
+            _fontBold   = new Font("Courier New", 8,  FontStyle.Bold);
             _fontNormal = new Font("Courier New", 8,  FontStyle.Regular);
             _fontSmall  = new Font("Courier New", 7,  FontStyle.Regular);
 
             var black = Brushes.Black;
 
             // ── Shop header ────────────────────────────────────────────────
-            DrawCentered(g, _settings.ShopName, _fontBold, black, w, x);
+            DrawCentered(g, _settings.ShopName, fontTitle, black, w, x);
             if (!string.IsNullOrWhiteSpace(_settings.Address))
                 DrawCentered(g, _settings.Address, _fontSmall, black, w, x);
             if (!string.IsNullOrWhiteSpace(_settings.Phone))
@@ -81,21 +82,19 @@ namespace YAInventory.Services
             DrawDivider(g, w, x);
 
             // ── Column headers ─────────────────────────────────────────────
-            var col = BuildItemLine("Item", "Qty", "Price", "Total");
-            DrawLine(g, col, _fontBold, black, x);
+            DrawItemRow(g, "Item", "Qty", "Price", "Total", _fontBold, black, w, x);
             DrawDivider(g, w, x);
 
             // ── Items ──────────────────────────────────────────────────────
             string sym = _settings.CurrencySymbol;
             foreach (var item in _currentSale.Items)
             {
-                var line = BuildItemLine(
-                    TruncateName(item.Name, 18),
-                    item.Quantity.ToString(),
-                    $"{sym}{item.UnitPrice:N2}",
-                    $"{sym}{item.Total:N2}");
-
-                DrawLine(g, line, _fontNormal, black, x);
+                DrawItemRow(g, 
+                    TruncateName(item.Name, 18), 
+                    item.Quantity.ToString(), 
+                    $"{sym}{item.UnitPrice:N2}", 
+                    $"{sym}{item.Total:N2}", 
+                    _fontNormal, black, w, x);
 
                 if (item.DiscountPercent > 0 || item.DiscountFlat > 0)
                 {
@@ -124,6 +123,7 @@ namespace YAInventory.Services
             DrawCentered(g, "Thank you for your purchase!", _fontSmall, black, w, x);
             DrawCentered(g, "Powered by YA Inventory", _fontSmall, Brushes.Gray, w, x);
 
+            fontTitle.Dispose();
             _fontBold.Dispose();
             _fontNormal.Dispose();
             _fontSmall.Dispose();
@@ -161,9 +161,27 @@ namespace YAInventory.Services
             _printY += (int)rSize.Height + 1;
         }
 
-        private static string BuildItemLine(string name, string qty, string price, string total)
+        // ── Item row drawing ───────────────────────────────────────────────
+        private void DrawItemRow(Graphics g, string col1, string col2, string col3, string col4, Font font, Brush brush, int w, int x)
         {
-            return $"{name,-18}{qty,3} {price,9} {total,9}";
+            // Col 1: Item name (Left aligned)
+            g.DrawString(col1, font, brush, x, _printY);
+
+            // Col 2: Qty (Right aligned near middle)
+            int c2X = x + (w / 2) - 40;
+            var c2Size = g.MeasureString(col2, font);
+            g.DrawString(col2, font, brush, c2X - c2Size.Width, _printY);
+
+            // Col 3: Price (Right aligned at ~75%)
+            int c3X = x + (int)(w * 0.75);
+            var c3Size = g.MeasureString(col3, font);
+            g.DrawString(col3, font, brush, c3X - c3Size.Width, _printY);
+
+            // Col 4: Total (Right aligned at right edge)
+            var c4Size = g.MeasureString(col4, font);
+            g.DrawString(col4, font, brush, x + w - c4Size.Width, _printY);
+
+            _printY += (int)Math.Max(c2Size.Height, c4Size.Height) + 1;
         }
 
         private static string TruncateName(string name, int max) =>

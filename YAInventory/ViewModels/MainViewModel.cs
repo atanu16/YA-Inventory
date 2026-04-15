@@ -108,11 +108,19 @@ namespace YAInventory.ViewModels
                 Nav.Register("ReceiptHistory",   () => new ReceiptHistoryViewModel(this));
                 Nav.Register("Settings",         () => new SettingsViewModel(this));
 
-                Nav.NavigateTo("Dashboard");
-
-                // Start sync if configured
+                // Bootstrap: if local CSV files are missing, pull from MongoDB
                 if (!string.IsNullOrWhiteSpace(Settings.MongoConnectionString))
+                {
                     Sync.Start(Settings, Settings.SyncIntervalSeconds);
+
+                    // If CSV doesn't exist, download from cloud first
+                    if (!Storage.HasLocalProductsFile() || !Storage.HasLocalSalesFile())
+                    {
+                        await Sync.BootstrapFromCloudAsync();
+                    }
+                }
+
+                Nav.NavigateTo("Dashboard");
 
                 // Wire up seamless UI refreshing when a sync completes
                 Sync.SyncCompleted += () =>

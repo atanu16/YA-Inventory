@@ -1,5 +1,4 @@
 using CsvHelper.Configuration.Attributes;
-using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 using System;
 
@@ -8,12 +7,13 @@ namespace YAInventory.Models
     /// <summary>
     /// Represents a product in inventory. Barcode is the unique business key.
     /// Same barcode → same product (no duplication, quantity increases instead).
+    /// MongoDB auto-manages _id — we use Barcode as the upsert key.
     /// </summary>
+    [BsonIgnoreExtraElements]
     public class Product
     {
-        // ── MongoDB identity ──────────────────────────────────────────────
-        [BsonId]
-        [BsonRepresentation(BsonType.ObjectId)]
+        // ── MongoDB _id: fully ignored — let MongoDB auto-manage it ───────
+        [BsonIgnore]
         [Ignore]   // CsvHelper: skip this column
         public string? MongoId { get; set; }
 

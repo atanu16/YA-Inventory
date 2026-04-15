@@ -1,4 +1,6 @@
+using Newtonsoft.Json;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Net.NetworkInformation;
 using System.Threading;
@@ -9,15 +11,17 @@ using YAInventory.Models;
 namespace YAInventory.Services
 {
     /// <summary>
-    /// Background service that periodically synchronises local CSV data with MongoDB Atlas.
+    /// Background service that synchronises local CSV data with MongoDB Atlas.
     ///
     /// Data-flow contract:
-    ///   1. WRITE local first (always, even offline)
-    ///   2. PUSH local → Mongo   (if online, on timer)
-    ///   3. PULL Mongo → local   (merge, latest UpdatedAt wins)
+    ///   • Local CSV is the source of truth (AES-256 encrypted on disk).
+    ///   • If CSV files don't exist on startup → bootstrap from MongoDB.
+    ///   • Every local change → save to CSV first, then push to MongoDB.
+    ///   • Background timer → pushes local changes to MongoDB (one-way).
+    ///   • Manual refresh → pushes ALL local data to MongoDB.
+    ///   • MongoDB stores plain data (no encryption needed there).
     ///
-    /// Conflict resolution: whichever record has the newer UpdatedAt wins.
-    /// No data is ever permanently deleted — soft deletes are used.
+    /// No bidirectional merge — local always wins.
     /// </summary>
     public class SyncService : IDisposable
     {
@@ -60,7 +64,100 @@ namespace YAInventory.Services
             UpdateStatus(SyncState.Offline, "Sync stopped");
         }
 
-        // ── Sync cycle ─────────────────────────────────────────────────────
+        // ── Bootstrap: pull from MongoDB when local CSV is missing ─────────
+        /// <summary>
+        /// Called once at startup. If local CSV files don't exist,
+        /// connects to MongoDB and downloads the full catalogue/sales
+        /// to create the initial encrypted local files.
+        /// </summary>
+        public async Task BootstrapFromCloudAsync()
+        {
+            bool needProducts = !_local.HasLocalProductsFile();
+            bool needSales    = !_local.HasLocalSalesFile();
+
+            if (!needProducts && !needSales) return;
+
+            if (string.IsNullOrWhiteSpace(_connectionString))
+            {
+                UpdateStatus(SyncState.Offline, "No MongoDB configured — starting with empty data");
+                return;
+            }
+
+            UpdateStatus(SyncState.Syncing, "Local data not found — downloading from cloud…");
+
+            try
+            {
+                if (!IsInternetAvailable())
+                {
+                    UpdateStatus(SyncState.Offline, "No internet — starting with empty data");
+                    return;
+                }
+
+                if (!_mongo.IsConnected)
+                {
+                    var ok = await _mongo.ConnectAsync(_connectionString, _databaseName);
+                    if (!ok)
+                    {
+                        UpdateStatus(SyncState.Failed, "Cannot reach MongoDB — starting with empty data");
+                        return;
+                    }
+                }
+
+                // Pull products from MongoDB → save to encrypted CSV
+                if (needProducts)
+                {
+                    UpdateStatus(SyncState.Syncing, "Downloading products from cloud…");
+                    var products = await _mongo.GetAllProductsAsync();
+                    if (products.Count > 0)
+                    {
+                        await _local.SaveProductsAsync(products);
+                        UpdateStatus(SyncState.Syncing, $"Downloaded {products.Count} products");
+                    }
+                }
+
+                // Pull sales from MongoDB → save to encrypted CSV
+                if (needSales)
+                {
+                    UpdateStatus(SyncState.Syncing, "Downloading sales from cloud…");
+                    var sales = await _mongo.GetAllSalesAsync();
+
+                    // Hydrate Items from ItemsJson for CSV storage
+                    foreach (var s in sales)
+                    {
+                        try
+                        {
+                            if (s.Items == null || s.Items.Count == 0)
+                                s.Items = JsonConvert.DeserializeObject<List<SaleItem>>(s.ItemsJson ?? "[]")
+                                          ?? new List<SaleItem>();
+                        }
+                        catch { s.Items = new List<SaleItem>(); }
+
+                        if (string.IsNullOrEmpty(s.ItemsJson) || s.ItemsJson == "[]")
+                            s.ItemsJson = JsonConvert.SerializeObject(s.Items);
+                    }
+
+                    if (sales.Count > 0)
+                    {
+                        await _local.SaveSalesAsync(sales);
+                        UpdateStatus(SyncState.Syncing, $"Downloaded {sales.Count} sales");
+                    }
+                }
+
+                // Mark first sync as done
+                var settings = _local.LoadSettings();
+                settings.LastSyncUtc = DateTime.UtcNow;
+                _local.SaveSettings(settings);
+                _status.LastSync = DateTime.UtcNow;
+
+                UpdateStatus(SyncState.Success, "Cloud data downloaded successfully!");
+            }
+            catch (Exception ex)
+            {
+                UpdateStatus(SyncState.Failed, $"Bootstrap error: {ex.Message}");
+            }
+        }
+
+        // ── Sync cycle: one-way local → cloud push ─────────────────────────
         public async Task RunSyncCycleAsync()
         {
             if (_isSyncing) return;
@@ -95,10 +192,46 @@ namespace YAInventory.Services
                     return;
                 }
 
-                UpdateStatus(SyncState.Syncing, "Syncing products…");
-                await SyncProductsAsync();
-
                 var settings = _local.LoadSettings();
+                var lastSync = settings.LastSyncUtc ?? DateTime.MinValue;
+
+                // ── Push products local → cloud ────────────────────────────
+                UpdateStatus(SyncState.Syncing, "Pushing products to cloud…");
+                var localProducts = await _local.LoadProductsAsync();
+                
+                // 1. Push updates
+                var productsToSync = localProducts
+                    .Where(p => p.UpdatedAt > lastSync)
+                    .ToList();
+
+                if (productsToSync.Count > 0)
+                    await _mongo.UpsertManyProductsAsync(productsToSync);
+
+                // 2. Propagate deletions (Hard Deletes)
+                var allCloudProducts = await _mongo.GetAllProductsAsync();
+                var localBarcodes    = new HashSet<string>(localProducts.Select(p => p.Barcode));
+                var barcodesToDelete = allCloudProducts
+                    .Select(p => p.Barcode)
+                    .Where(b => !localBarcodes.Contains(b))
+                    .ToList();
+
+                if (barcodesToDelete.Count > 0)
+                {
+                    UpdateStatus(SyncState.Syncing, "Removing deleted products from cloud…");
+                    await _mongo.DeleteManyProductsAsync(barcodesToDelete);
+                }
+
+                // ── Push sales local → cloud ───────────────────────────────
+                UpdateStatus(SyncState.Syncing, "Pushing sales to cloud…");
+                var localSales = await _local.LoadSalesAsync();
+                var salesToSync = localSales
+                    .Where(s => s.UpdatedAt > lastSync)
+                    .ToList();
+
+                if (salesToSync.Count > 0)
+                    await _mongo.UpsertManySalesAsync(salesToSync);
+
+                // ── Finalise ───────────────────────────────────────────────
                 settings.LastSyncUtc = DateTime.UtcNow;
                 _local.SaveSettings(settings);
                 _status.LastSync = DateTime.UtcNow;
@@ -116,55 +249,84 @@ namespace YAInventory.Services
             }
         }
 
-        private async Task SyncProductsAsync()
+        // ── Manual refresh: push ALL local data to cloud ───────────────────
+        /// <summary>
+        /// Pushes the ENTIRE local dataset to MongoDB, regardless of LastSyncUtc.
+        /// Called when the user explicitly refreshes / syncs.
+        /// </summary>
+        public async Task PushAllToCloudAsync()
         {
-            var settings = _local.LoadSettings();
+            if (_isSyncing) return;
+            _isSyncing = true;
 
-            // 1. Load local products
-            var localProducts = await _local.LoadProductsAsync();
-
-            var lastSync = settings.LastSyncUtc ?? DateTime.MinValue;
-
-            // 2. Load remote products (Delta pull if not first sync)
-            var remoteProducts = lastSync == DateTime.MinValue
-                ? await _mongo.GetAllProductsAsync()
-                : await _mongo.GetProductsUpdatedAfterAsync(lastSync);
-
-            // 3. Merge: build a dictionary keyed by barcode
-            var merged = localProducts.ToDictionary(p => p.Barcode);
-
-            bool needsLocalSave = false;
-            foreach (var remote in remoteProducts)
+            try
             {
-                if (merged.TryGetValue(remote.Barcode, out var local))
+                if (string.IsNullOrWhiteSpace(_connectionString))
                 {
-                    // Conflict resolution: latest UpdatedAt wins
-                    if (remote.UpdatedAt > local.UpdatedAt)
+                    UpdateStatus(SyncState.Offline, "MongoDB not configured");
+                    return;
+                }
+
+                if (!IsInternetAvailable())
+                {
+                    UpdateStatus(SyncState.Offline, "No internet connection");
+                    return;
+                }
+
+                UpdateStatus(SyncState.Syncing, "Connecting to cloud…");
+
+                if (!_mongo.IsConnected)
+                {
+                    var ok = await _mongo.ConnectAsync(_connectionString, _databaseName);
+                    if (!ok)
                     {
-                        merged[remote.Barcode] = remote;
-                        needsLocalSave = true;
+                        UpdateStatus(SyncState.Failed, "Cannot reach MongoDB Atlas");
+                        return;
                     }
                 }
-                else
+
+                // Push ALL products
+                UpdateStatus(SyncState.Syncing, "Pushing all products to cloud…");
+                var allProducts = await _local.LoadProductsAsync();
+                if (allProducts.Count > 0)
+                    await _mongo.UpsertManyProductsAsync(allProducts);
+
+                // Propagate deletions (Hard Deletes) during manual sync
+                var allCloudProducts = await _mongo.GetAllProductsAsync();
+                var localBarcodes    = new HashSet<string>(allProducts.Select(p => p.Barcode));
+                var barcodesToDelete = allCloudProducts
+                    .Select(p => p.Barcode)
+                    .Where(b => !localBarcodes.Contains(b))
+                    .ToList();
+
+                if (barcodesToDelete.Count > 0)
                 {
-                    merged[remote.Barcode] = remote;
-                    needsLocalSave = true;
+                    UpdateStatus(SyncState.Syncing, "Removing deleted products from cloud…");
+                    await _mongo.DeleteManyProductsAsync(barcodesToDelete);
                 }
+
+                // Push ALL sales
+                UpdateStatus(SyncState.Syncing, "Pushing all sales to cloud…");
+                var allSales = await _local.LoadSalesAsync();
+                if (allSales.Count > 0)
+                    await _mongo.UpsertManySalesAsync(allSales);
+
+                // Update last sync
+                var settings = _local.LoadSettings();
+                settings.LastSyncUtc = DateTime.UtcNow;
+                _local.SaveSettings(settings);
+                _status.LastSync = DateTime.UtcNow;
+
+                UpdateStatus(SyncState.Success, $"All data synced to cloud ({allProducts.Count} products, {allSales.Count} sales)");
+                SyncCompleted?.Invoke();
             }
-
-            var finalList = merged.Values.ToList();
-
-            // 4. Push merged set back to local (only if we pulled newer items)
-            if (needsLocalSave)
+            catch (Exception ex)
             {
-                await _local.SaveProductsAsync(finalList);
+                UpdateStatus(SyncState.Failed, $"Full sync error: {ex.Message}");
             }
-
-            // 5. Push local updates to Mongo
-            var localUpdates = finalList.Where(p => p.UpdatedAt > lastSync).ToList();
-            if (localUpdates.Count > 0)
+            finally
             {
-                await _mongo.UpsertManyProductsAsync(localUpdates);
+                _isSyncing = false;
             }
         }
 

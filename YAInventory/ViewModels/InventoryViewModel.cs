@@ -99,7 +99,7 @@ namespace YAInventory.ViewModels
             CancelDialogCommand  = new RelayCommand(_ => ShowDialog = false);
             BarcodeScannedCommand= new AsyncRelayCommand(HandleBarcodeAsync);
             ExportCommand        = new AsyncRelayCommand(ExportToExcelAsync);
-            RefreshCommand       = new AsyncRelayCommand(LoadProductsAsync);
+            RefreshCommand       = new AsyncRelayCommand(RefreshAndSyncAsync);
 
             _ = LoadProductsAsync();
         }
@@ -131,6 +131,16 @@ namespace YAInventory.ViewModels
                 RaiseStatsChanged();
             }
             finally { ClearBusy(); }
+        }
+
+        // ── Refresh + push all to cloud ────────────────────────────────────
+        private async Task RefreshAndSyncAsync(object? _)
+        {
+            await LoadProductsAsync();
+
+            // Push ALL local data to MongoDB on manual refresh
+            _main.Notify("Syncing all data to cloud…", "Info");
+            await _main.Sync.PushAllToCloudAsync();
         }
 
         // ── Filter ─────────────────────────────────────────────────────────
@@ -249,9 +259,12 @@ namespace YAInventory.ViewModels
 
                 await _main.Storage.UpsertProductAsync(DialogProduct);
 
-                // Also push to Mongo if connected
+                // Push to Mongo immediately if connected
+                bool pushedToCloud = false;
                 if (_main.Mongo.IsConnected)
-                    await _main.Mongo.UpsertProductAsync(DialogProduct);
+                {
+                    pushedToCloud = await _main.Mongo.UpsertProductAsync(DialogProduct);
+                }
 
                 ShowDialog = false;
 
@@ -268,7 +281,14 @@ namespace YAInventory.ViewModels
                 // Highlight the newly added/edited product
                 SelectedProduct = Products.FirstOrDefault(p => p.Barcode == DialogProduct.Barcode);
 
-                _main.Notify(isNew ? "Product added!" : "Product updated!", "Success");
+                if (pushedToCloud)
+                    _main.Notify(isNew ? "Product added & synced to cloud!" : "Product updated & synced!", "Success");
+                else
+                {
+                    _main.Notify(isNew ? "Product added locally — will sync when online" : "Product updated locally — will sync when online", "Warning");
+                    // Trigger a sync cycle so it picks up the change soon
+                    _ = _main.Sync.RunSyncCycleAsync();
+                }
             }
             finally { ClearBusy(); }
         }
@@ -279,7 +299,7 @@ namespace YAInventory.ViewModels
             if (product is null) return;
 
             var result = MessageBox.Show(
-                $"Delete '{product.Name}'?\n\nProduct will be soft-deleted (quantity zeroed).",
+                $"Delete '{product.Name}'?\n\nThis will permanently delete the product from local storage and the cloud.",
                 "Confirm Delete",
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Warning);
@@ -290,6 +310,13 @@ namespace YAInventory.ViewModels
             try
             {
                 await _main.Storage.DeleteProductAsync(product.Barcode);
+
+                // Push hard-delete to Mongo so cloud stays in sync
+                if (_main.Mongo.IsConnected)
+                {
+                    await _main.Mongo.DeleteProductAsync(product.Barcode);
+                }
+
                 await LoadProductsAsync();
                 _main.Notify("Product deleted", "Success");
             }
