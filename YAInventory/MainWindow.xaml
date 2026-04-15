@@ -1,0 +1,425 @@
+<Window x:Class="YAInventory.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:YAInventory.ViewModels"
+        xmlns:views="clr-namespace:YAInventory.Views"
+        Title="YA Inventory Management"
+        Width="1280" Height="780"
+        MinWidth="960" MinHeight="600"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        WindowStartupLocation="CenterScreen">
+
+    <Window.Resources>
+        <!-- DataTemplate map: ViewModel type → View -->
+        <DataTemplate DataType="{x:Type vm:DashboardViewModel}">
+            <views:DashboardView/>
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:InventoryViewModel}">
+            <views:InventoryView/>
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:BillingViewModel}">
+            <views:BillingView/>
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:ReportsViewModel}">
+            <views:ReportsView/>
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:SettingsViewModel}">
+            <views:SettingsView/>
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:ReceiptHistoryViewModel}">
+            <views:ReceiptHistoryView/>
+        </DataTemplate>
+    </Window.Resources>
+
+    <!-- ── Outer window border with rounded corners ──────────────────────── -->
+    <Border CornerRadius="16" ClipToBounds="True">
+        <Border.Background>
+            <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                <GradientStop Color="#0A0A1A" Offset="0"/>
+                <GradientStop Color="#12103A" Offset="0.45"/>
+                <GradientStop Color="#0A1628" Offset="1"/>
+            </LinearGradientBrush>
+        </Border.Background>
+
+        <Grid>
+            <!-- Ambient glow blobs (decorative, glassmorphic feel) -->
+            <Canvas IsHitTestVisible="False">
+                <Ellipse Width="500" Height="500" Canvas.Left="-150" Canvas.Top="-200" Opacity="0.07">
+                    <Ellipse.Fill>
+                        <RadialGradientBrush>
+                            <GradientStop Color="#8B5CF6" Offset="0"/>
+                            <GradientStop Color="Transparent" Offset="1"/>
+                        </RadialGradientBrush>
+                    </Ellipse.Fill>
+                </Ellipse>
+                <Ellipse Width="400" Height="400" Canvas.Right="-100" Canvas.Bottom="-100" Opacity="0.06">
+                    <Ellipse.Fill>
+                        <RadialGradientBrush>
+                            <GradientStop Color="#06B6D4" Offset="0"/>
+                            <GradientStop Color="Transparent" Offset="1"/>
+                        </RadialGradientBrush>
+                    </Ellipse.Fill>
+                </Ellipse>
+            </Canvas>
+
+            <!-- Main layout: sidebar + content -->
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="210" MinWidth="190" MaxWidth="250"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- ══════════════════════════════════════════════════════ -->
+                <!--  SIDEBAR                                               -->
+                <!-- ══════════════════════════════════════════════════════ -->
+                <Border Grid.Column="0"
+                        Background="#0D0D20"
+                        BorderBrush="#25FFFFFF"
+                        BorderThickness="0,0,1,0">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>  <!-- Logo -->
+                            <RowDefinition Height="*"/>     <!-- Nav  -->
+                            <RowDefinition Height="Auto"/>  <!-- Sync -->
+                        </Grid.RowDefinitions>
+
+                        <!-- Logo / brand area -->
+                        <Border Grid.Row="0" Padding="20,24,20,20"
+                                BorderBrush="#20FFFFFF" BorderThickness="0,0,0,1"
+                                MouseLeftButtonDown="TitleBar_MouseDown">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <Border Width="36" Height="36" CornerRadius="10"
+                                            Background="{StaticResource AccentGradient}">
+                                        <TextBlock Text="YA" FontSize="14" FontWeight="Bold"
+                                                   Foreground="White"
+                                                   HorizontalAlignment="Center"
+                                                   VerticalAlignment="Center"/>
+                                    </Border>
+                                    <StackPanel Margin="10,0,0,0">
+                                        <TextBlock Text="{Binding Settings.ShopName}"
+                                                   FontSize="14" FontWeight="Bold"
+                                                   Foreground="White"/>
+                                        <TextBlock Text="Inventory POS"
+                                                   FontSize="10"
+                                                   Foreground="{StaticResource TextMutedBrush}"/>
+                                    </StackPanel>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Navigation items -->
+                        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Hidden"
+                                      Margin="0,12,0,0">
+                            <StackPanel>
+                                <TextBlock Text="MENU" Margin="18,8,0,4"
+                                           FontSize="9" FontWeight="SemiBold"
+                                           Foreground="{StaticResource TextDimBrush}" Opacity="0.7"/>
+
+                                <!-- Dashboard -->
+                                <RadioButton Style="{StaticResource NavButton}"
+                                             PreviewMouseLeftButtonDown="NavButton_PreviewMouseDown"
+                                             Command="{Binding NavigateCommand}"
+                                             CommandParameter="Dashboard"
+                                             IsChecked="{Binding CurrentPage, Converter={StaticResource StrEq}, ConverterParameter=Dashboard, Mode=OneWay}">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock Text="⊞" FontSize="15" Width="22" TextAlignment="Center"/>
+                                        <TextBlock Text="Dashboard" FontSize="13" VerticalAlignment="Center" Margin="6,0,0,0"/>
+                                    </StackPanel>
+                                </RadioButton>
+
+                                <!-- Inventory -->
+                                <RadioButton Style="{StaticResource NavButton}"
+                                             PreviewMouseLeftButtonDown="NavButton_PreviewMouseDown"
+                                             Command="{Binding NavigateCommand}"
+                                             CommandParameter="Inventory"
+                                             IsChecked="{Binding CurrentPage, Converter={StaticResource StrEq}, ConverterParameter=Inventory, Mode=OneWay}">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock Text="📦" FontSize="14" Width="22" TextAlignment="Center"/>
+                                        <TextBlock Text="Inventory" FontSize="13" VerticalAlignment="Center" Margin="6,0,0,0"/>
+                                    </StackPanel>
+                                </RadioButton>
+
+                                <!-- Billing / POS -->
+                                <RadioButton Style="{StaticResource NavButton}"
+                                             PreviewMouseLeftButtonDown="NavButton_PreviewMouseDown"
+                                             Command="{Binding NavigateCommand}"
+                                             CommandParameter="Billing"
+                                             IsChecked="{Binding CurrentPage, Converter={StaticResource StrEq}, ConverterParameter=Billing, Mode=OneWay}">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock Text="🧾" FontSize="14" Width="22" TextAlignment="Center"/>
+                                        <TextBlock Text="Billing / POS" FontSize="13" VerticalAlignment="Center" Margin="6,0,0,0"/>
+                                    </StackPanel>
+                                </RadioButton>
+
+                                <!-- Reports -->
+                                <RadioButton Style="{StaticResource NavButton}"
+                                             PreviewMouseLeftButtonDown="NavButton_PreviewMouseDown"
+                                             Command="{Binding NavigateCommand}"
+                                             CommandParameter="Reports"
+                                             IsChecked="{Binding CurrentPage, Converter={StaticResource StrEq}, ConverterParameter=Reports, Mode=OneWay}">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock Text="📊" FontSize="14" Width="22" TextAlignment="Center"/>
+                                        <TextBlock Text="Reports" FontSize="13" VerticalAlignment="Center" Margin="6,0,0,0"/>
+                                    </StackPanel>
+                                </RadioButton>
+
+                                <!-- ReceiptHistory -->
+                                <RadioButton Style="{StaticResource NavButton}"
+                                             PreviewMouseLeftButtonDown="NavButton_PreviewMouseDown"
+                                             Command="{Binding NavigateCommand}"
+                                             CommandParameter="ReceiptHistory"
+                                             IsChecked="{Binding CurrentPage, Converter={StaticResource StrEq}, ConverterParameter=ReceiptHistory, Mode=OneWay}">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock Text="🧾" FontSize="14" Width="22" TextAlignment="Center"/>
+                                        <TextBlock Text="Receipts" FontSize="13" VerticalAlignment="Center" Margin="6,0,0,0"/>
+                                    </StackPanel>
+                                </RadioButton>
+
+                                <Separator Margin="14,8"/>
+                                <TextBlock Text="SYSTEM" Margin="18,4,0,2"
+                                           FontSize="9" FontWeight="SemiBold"
+                                           Foreground="{StaticResource TextDimBrush}" Opacity="0.7"/>
+
+                                <!-- Settings -->
+                                <RadioButton Style="{StaticResource NavButton}"
+                                             PreviewMouseLeftButtonDown="NavButton_PreviewMouseDown"
+                                             Command="{Binding NavigateCommand}"
+                                             CommandParameter="Settings"
+                                             IsChecked="{Binding CurrentPage, Converter={StaticResource StrEq}, ConverterParameter=Settings, Mode=OneWay}">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock Text="⚙" FontSize="14" Width="22" TextAlignment="Center"/>
+                                        <TextBlock Text="Settings" FontSize="13" VerticalAlignment="Center" Margin="6,0,0,0"/>
+                                    </StackPanel>
+                                </RadioButton>
+                            </StackPanel>
+                        </ScrollViewer>
+
+                        <!-- Sync status at bottom of sidebar -->
+                        <Border Grid.Row="2" Padding="14,10"
+                                BorderBrush="#20FFFFFF" BorderThickness="0,1,0,0">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="{Binding SyncStatus.StatusIcon}"
+                                               FontSize="12"
+                                               Foreground="{Binding SyncStatus.StatusColor}"/>
+                                    <TextBlock Text="{Binding SyncStatus.Message}"
+                                               FontSize="10"
+                                               Foreground="{Binding SyncStatus.StatusColor}"
+                                               TextTrimming="CharacterEllipsis"/>
+                                </StackPanel>
+                                <TextBlock Text="{Binding SyncStatus.LastSyncLabel}"
+                                           FontSize="9"
+                                           Foreground="{StaticResource TextDimBrush}"
+                                           Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                </Border>
+
+                <!-- ══════════════════════════════════════════════════════ -->
+                <!--  CONTENT AREA                                          -->
+                <!-- ══════════════════════════════════════════════════════ -->
+                <Grid Grid.Column="1">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="50"/>   <!-- Top bar     -->
+                        <RowDefinition Height="*"/>    <!-- Page content -->
+                    </Grid.RowDefinitions>
+
+                    <!-- Top bar -->
+                    <Border Grid.Row="0" Padding="20,0"
+                            Background="#08FFFFFF"
+                            BorderBrush="#18FFFFFF"
+                            BorderThickness="0,0,0,1"
+                            MouseLeftButtonDown="TitleBar_MouseDown">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Page title -->
+                            <TextBlock Text="{Binding CurrentPage}"
+                                       FontSize="17" FontWeight="SemiBold"
+                                       Foreground="{StaticResource TextPrimaryBrush}"
+                                       VerticalAlignment="Center"/>
+
+                            <!-- Window controls -->
+                            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                <Button Style="{StaticResource BtnIcon}"
+                                        Command="{Binding MinimizeCommand}"
+                                        Width="30" Height="30">
+                                    <TextBlock Text="—" FontSize="12"
+                                               Foreground="{StaticResource TextMutedBrush}"/>
+                                </Button>
+                                <Button Style="{StaticResource BtnIcon}"
+                                        Command="{Binding MaximizeCommand}"
+                                        Width="30" Height="30">
+                                    <TextBlock Text="⬜" FontSize="11"
+                                               Foreground="{StaticResource TextMutedBrush}"/>
+                                </Button>
+                                <Button Style="{StaticResource BtnIcon}"
+                                        Command="{Binding CloseCommand}"
+                                        Width="30" Height="30">
+                                    <TextBlock Text="✕" FontSize="12" Foreground="#EF4444"/>
+                                </Button>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <!-- Page content via ContentControl → DataTemplate routing -->
+                    <ContentControl Grid.Row="1"
+                                    Content="{Binding Nav.CurrentView, NotifyOnTargetUpdated=True}"
+                                    Focusable="False">
+                        <ContentControl.Style>
+                            <Style TargetType="ContentControl">
+                                <Style.Triggers>
+                                    <EventTrigger RoutedEvent="Binding.TargetUpdated">
+                                        <BeginStoryboard>
+                                            <Storyboard>
+                                                <DoubleAnimation
+                                                    Storyboard.TargetProperty="Opacity"
+                                                    From="0" To="1" Duration="0:0:0.2"
+                                                    EasingFunction="{x:Null}"/>
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </EventTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </ContentControl.Style>
+                    </ContentControl>
+
+                    <!-- Global busy overlay -->
+                    <Border Grid.Row="0" Grid.RowSpan="2"
+                            Visibility="{Binding IsBusy, Converter={StaticResource BoolToVis}}"
+                            Background="#80000000">
+                        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <Border Width="48" Height="48" CornerRadius="24"
+                                    Background="{StaticResource AccentGradient}">
+                                <TextBlock Text="⟳" FontSize="22" Foreground="White"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <TextBlock.RenderTransform>
+                                        <RotateTransform x:Name="SpinnerRotate"/>
+                                    </TextBlock.RenderTransform>
+                                    <TextBlock.Triggers>
+                                        <EventTrigger RoutedEvent="Loaded">
+                                            <BeginStoryboard>
+                                                <Storyboard RepeatBehavior="Forever">
+                                                    <DoubleAnimation
+                                                        Storyboard.TargetName="SpinnerRotate"
+                                                        Storyboard.TargetProperty="Angle"
+                                                        From="0" To="360" Duration="0:0:1"/>
+                                                </Storyboard>
+                                            </BeginStoryboard>
+                                        </EventTrigger>
+                                    </TextBlock.Triggers>
+                                </TextBlock>
+                            </Border>
+                            <TextBlock Text="{Binding BusyMessage}"
+                                       Foreground="White" FontSize="13"
+                                       HorizontalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </Grid>
+
+            <!-- ── Global notification popup ─────────────────────────────── -->
+            <Border HorizontalAlignment="Right" VerticalAlignment="Top"
+                    Margin="0,60,20,0" Panel.ZIndex="100"
+                    Visibility="{Binding ShowNotification, Converter={StaticResource BoolToVis}}"
+                    RenderTransformOrigin="1,0">
+                <Border.RenderTransform>
+                    <TranslateTransform x:Name="NotifTranslate" X="320"/>
+                </Border.RenderTransform>
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Setter Property="Background" Value="#1A1A35"/>
+                        <Setter Property="BorderThickness" Value="1"/>
+                        <Setter Property="CornerRadius"    Value="10"/>
+                        <Setter Property="Padding"         Value="16,10"/>
+                        <Setter Property="MinWidth"        Value="280"/>
+                        <Setter Property="Effect">
+                            <Setter.Value>
+                                <DropShadowEffect Color="#000000" BlurRadius="20" ShadowDepth="4" Opacity="0.5"/>
+                            </Setter.Value>
+                        </Setter>
+                        <Style.Triggers>
+                            <Trigger Property="Visibility" Value="Visible">
+                                <Trigger.EnterActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation
+                                                Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)"
+                                                From="320" To="0" Duration="0:0:0.25">
+                                                <DoubleAnimation.EasingFunction>
+                                                    <CubicEase EasingMode="EaseOut"/>
+                                                </DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
+                                            <DoubleAnimation
+                                                Storyboard.TargetProperty="Opacity"
+                                                From="0" To="1" Duration="0:0:0.2"/>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.EnterActions>
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock x:Name="NotifIcon" FontSize="14" VerticalAlignment="Center"/>
+                    <TextBlock Text="{Binding NotificationMessage}"
+                               Foreground="White" FontSize="12"
+                               VerticalAlignment="Center" TextWrapping="Wrap" MaxWidth="220"/>
+                    <Button Style="{StaticResource BtnIcon}"
+                            Command="{Binding DismissNotification}"
+                            Margin="4,0,0,0">
+                        <TextBlock Text="✕" FontSize="10" Foreground="{StaticResource TextMutedBrush}"/>
+                    </Button>
+                </StackPanel>
+            </Border>
+
+            <!-- ── Welcome splash ─────────────────────────────────────────── -->
+            <Border Visibility="{Binding ShowWelcome, Converter={StaticResource BoolToVis}}"
+                    Background="#CC000015" Panel.ZIndex="200">
+                <Border HorizontalAlignment="Center" VerticalAlignment="Center"
+                        CornerRadius="20" Padding="50,40"
+                        Background="#1A1A35"
+                        BorderBrush="{StaticResource GlassBorderBrush}"
+                        BorderThickness="1">
+                    <Border.Effect>
+                        <DropShadowEffect Color="#6366F1" BlurRadius="40" ShadowDepth="0" Opacity="0.4"/>
+                    </Border.Effect>
+                    <StackPanel HorizontalAlignment="Center">
+                        <Border Width="64" Height="64" CornerRadius="16"
+                                Background="{StaticResource AccentGradient}"
+                                HorizontalAlignment="Center">
+                            <TextBlock Text="YA" FontSize="22" FontWeight="Bold"
+                                       Foreground="White"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <TextBlock Text="YA Inventory Management"
+                                   Style="{StaticResource H2}"
+                                   HorizontalAlignment="Center"/>
+                        <TextBlock Text="POS · Inventory · Reports · Cloud Sync"
+                                   Style="{StaticResource Caption}"
+                                   HorizontalAlignment="Center"/>
+                        <ProgressBar IsIndeterminate="True" Height="3"
+                                     Width="200" Margin="0,16,0,0"
+                                     Background="#30FFFFFF"
+                                     Foreground="{StaticResource AccentPrimaryBrush}"
+                                     BorderThickness="0"/>
+                        <TextBlock Text="Starting up…"
+                                   Style="{StaticResource Caption}"
+                                   HorizontalAlignment="Center"/>
+                    </StackPanel>
+                </Border>
+            </Border>
+
+            <!-- Resize grip (bottom-right) -->
+            <ResizeGrip HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                        Foreground="{StaticResource TextDimBrush}" Margin="0,0,4,4"/>
+        </Grid>
+    </Border>
+</Window>

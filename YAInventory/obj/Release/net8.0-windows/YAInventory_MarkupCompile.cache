@@ -1,0 +1,20 @@
+﻿YAInventory
+
+
+winexe
+C#
+.cs
+C:\Projects\YA Inventory\YAInventory\obj\Release\net8.0-windows\
+YAInventory
+none
+false
+TRACE;RELEASE;NET;NET8_0;NETCOREAPP;WINDOWS;WINDOWS7_0;NET5_0_OR_GREATER;NET6_0_OR_GREATER;NET7_0_OR_GREATER;NET8_0_OR_GREATER;NETCOREAPP3_0_OR_GREATER;NETCOREAPP3_1_OR_GREATER;WINDOWS7_0_OR_GREATER
+C:\Projects\YA Inventory\YAInventory\App.xaml
+8-1436588718
+
+35174051962
+230-148933007
+MainWindow.xaml;Resources\Colors.xaml;Resources\Styles.xaml;Views\BillingView.xaml;Views\DashboardView.xaml;Views\InventoryView.xaml;Views\ReportsView.xaml;Views\SettingsView.xaml;
+
+False
+
