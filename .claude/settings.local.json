@@ -1,9 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(dotnet build:*)",
-      "Bash(find \"c:/Projects/YA Inventory/YAInventory\" -name \"*.xaml\" -exec sed -i 's/ Spacing=\"[0-9]*\"//g' {} \\\\;)",
-      "Bash(dotnet restore:*)"
-    ]
-  }
-}

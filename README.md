@@ -1,3 +1,7 @@
+<div align="center">
+  <img src="YAInventory/YA.png" alt="YA Inventory Logo" width="120" />
+</div>
+
 # YA Inventory POS
 
 A modern, high-performance Point of Sale (POS) and Inventory Management system built with **.NET 8 (WPF)**. Designed with a stunning dark-themed glassmorphism UI, YA Inventory POS offers a seamless, distraction-free environment for managing products, processing sales, and reviewing historical receipts.
