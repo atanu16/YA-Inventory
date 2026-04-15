@@ -226,6 +226,11 @@
                               AutoGenerateColumns="False"
                               IsReadOnly="True"
                               CanUserSortColumns="True">
+                        <DataGrid.InputBindings>
+                            <MouseBinding MouseAction="LeftDoubleClick"
+                                          Command="{Binding ViewInvoiceCommand}"
+                                          CommandParameter="{Binding SelectedItem, RelativeSource={RelativeSource AncestorType=DataGrid}}"/>
+                        </DataGrid.InputBindings>
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Invoice"  Binding="{Binding SaleId}"     Width="*"/>
                             <DataGridTextColumn Header="Date"     Binding="{Binding SaleDate, StringFormat='dd MMM yy HH:mm'}" Width="130"/>
@@ -259,6 +264,55 @@
                             <DataGridTextColumn Header="Revenue" Binding="{Binding Revenue, StringFormat='₹{0:N0}'}" Width="75"/>
                         </DataGrid.Columns>
                     </DataGrid>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <!-- ── Popup Overlay ────────────────────────────────────────────── -->
+        <Grid Grid.RowSpan="5" Margin="-20,-16,-20,-16"
+              Background="#D8000000"
+              Visibility="{Binding ShowInvoiceDialog, Converter={StaticResource BoolToVis}}"
+              Panel.ZIndex="1000">
+            <Border Style="{StaticResource GlassCard}"
+                    Background="#F80D0D1F"
+                    VerticalAlignment="Center" HorizontalAlignment="Center"
+                    Width="500" Padding="0" MaxHeight="600">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <Border Grid.Row="0" Background="#0D0D20" CornerRadius="12,12,0,0" Padding="18,14">
+                        <Grid>
+                            <StackPanel>
+                                <TextBlock Text="INVOICE DETAILS" FontSize="9" FontWeight="Bold" Opacity="0.4" Foreground="White" Margin="0,0,0,3"/>
+                                <TextBlock Text="{Binding SelectedInvoice.SaleId}" FontSize="16" FontWeight="Bold" Foreground="{StaticResource AccentPrimaryBrush}"/>
+                                <TextBlock Text="{Binding SelectedInvoice.SaleDate, StringFormat='dd MMM yyyy, HH:mm'}" Style="{StaticResource Caption}" Margin="0,2,0,0"/>
+                            </StackPanel>
+                            <Button Style="{StaticResource BtnIcon}" Command="{Binding CloseInvoiceCommand}" HorizontalAlignment="Right" VerticalAlignment="Top" Width="28" Height="28">
+                                <TextBlock Text="✕" FontSize="11" Foreground="{StaticResource TextDimBrush}"/>
+                            </Button>
+                        </Grid>
+                    </Border>
+
+                    <DataGrid Grid.Row="1" ItemsSource="{Binding SelectedInvoice.Items}" Style="{StaticResource GlassGrid}" AutoGenerateColumns="False" IsReadOnly="True" Margin="0,10,0,10">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Product" Binding="{Binding Name}" Width="*"/>
+                            <DataGridTextColumn Header="Qty" Binding="{Binding Quantity}" Width="40"/>
+                            <DataGridTextColumn Header="Price" Binding="{Binding UnitPrice, StringFormat='₹{0:N2}'}" Width="70"/>
+                            <DataGridTextColumn Header="Disc%" Binding="{Binding DiscountPercent, StringFormat='{}{0}%'}" Width="48"/>
+                            <DataGridTextColumn Header="Total" Binding="{Binding Total, StringFormat='₹{0:N2}'}" Width="70"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+
+                    <Border Grid.Row="2" Background="#0A0A18" CornerRadius="0,0,12,12" Padding="16,10" BorderBrush="#18FFFFFF" BorderThickness="0,1,0,0">
+                        <Grid>
+                            <TextBlock Text="TOTAL PAYABLE" FontSize="12" FontWeight="Bold" Foreground="White" VerticalAlignment="Center"/>
+                            <TextBlock Text="{Binding SelectedInvoice.Total, StringFormat='₹{0:N2}'}" FontSize="18" FontWeight="Bold" Foreground="{StaticResource AccentPrimaryBrush}" HorizontalAlignment="Right"/>
+                        </Grid>
+                    </Border>
                 </Grid>
             </Border>
         </Grid>

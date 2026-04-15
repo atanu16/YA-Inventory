@@ -9,6 +9,7 @@
     <AssemblyName>YAInventory</AssemblyName>
     <RootNamespace>YAInventory</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>YA.ico</ApplicationIcon>
     <Platforms>AnyCPU</Platforms>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
@@ -30,6 +31,7 @@
 
   <ItemGroup>
     <Resource Include="Resources\Icons\*.png" />
+    <Resource Include="YA.ico" />
   </ItemGroup>
 
 </Project>

@@ -114,6 +114,18 @@ namespace YAInventory.ViewModels
                 if (!string.IsNullOrWhiteSpace(Settings.MongoConnectionString))
                     Sync.Start(Settings, Settings.SyncIntervalSeconds);
 
+                // Wire up seamless UI refreshing when a sync completes
+                Sync.SyncCompleted += () =>
+                {
+                    Application.Current.Dispatcher.Invoke(() =>
+                    {
+                        if (Nav.CurrentView is InventoryViewModel ivm)
+                            _ = ivm.LoadProductsAsync();
+                        else if (Nav.CurrentView is DashboardViewModel dvm)
+                            _ = dvm.LoadAsync();
+                    });
+                };
+
                 // Welcome splash auto-dismiss after 3 s
                 await Task.Delay(3000);
                 ShowWelcome = false;

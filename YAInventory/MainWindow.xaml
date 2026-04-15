@@ -4,6 +4,7 @@
         xmlns:vm="clr-namespace:YAInventory.ViewModels"
         xmlns:views="clr-namespace:YAInventory.Views"
         Title="YA Inventory Management"
+        Icon="YA.ico"
         Width="1280" Height="780"
         MinWidth="960" MinHeight="600"
         WindowStyle="None"
@@ -34,7 +35,7 @@
     </Window.Resources>
 
     <!-- ── Outer window border with rounded corners ──────────────────────── -->
-    <Border CornerRadius="16" ClipToBounds="True">
+    <Border CornerRadius="0" ClipToBounds="True">
         <Border.Background>
             <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
                 <GradientStop Color="#0A0A1A" Offset="0"/>
@@ -77,7 +78,8 @@
                 <Border Grid.Column="0"
                         Background="#0D0D20"
                         BorderBrush="#25FFFFFF"
-                        BorderThickness="0,0,1,0">
+                        BorderThickness="0,0,1,0"
+                        CornerRadius="0">
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>  <!-- Logo -->
@@ -233,6 +235,7 @@
                             Background="#08FFFFFF"
                             BorderBrush="#18FFFFFF"
                             BorderThickness="0,0,0,1"
+                            CornerRadius="0"
                             MouseLeftButtonDown="TitleBar_MouseDown">
                         <Grid>
                             <Grid.ColumnDefinitions>

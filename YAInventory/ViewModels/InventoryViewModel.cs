@@ -113,11 +113,19 @@ namespace YAInventory.ViewModels
                 _allProducts = await _main.Storage.LoadProductsAsync();
                 _allProducts = _allProducts.Where(p => !p.IsDeleted).ToList();
 
-                // Rebuild category list
+                // Rebuild category list while preserving selection
+                var currentCat = FilterCategory;
                 var cats = _allProducts.Select(p => p.Category).Distinct().OrderBy(c => c).ToList();
+                
                 Categories.Clear();
                 Categories.Add("All");
                 foreach (var c in cats) Categories.Add(c);
+
+                // Restore selection if it still exists
+                if (Categories.Contains(currentCat))
+                    FilterCategory = currentCat;
+                else
+                    FilterCategory = "All";
 
                 ApplyFilter();
                 RaiseStatsChanged();
@@ -139,10 +147,10 @@ namespace YAInventory.ViewModels
                     p.Category.ToLowerInvariant().Contains(q));
             }
 
-            if (FilterCategory != "All")
+            if (!string.IsNullOrEmpty(FilterCategory) && FilterCategory != "All")
                 filtered = filtered.Where(p => p.Category == FilterCategory);
 
-            if (FilterStock != "All")
+            if (!string.IsNullOrEmpty(FilterStock) && FilterStock != "All")
                 filtered = FilterStock switch
                 {
                     "In Stock"     => filtered.Where(p => p.StockStatus == StockStatus.InStock),

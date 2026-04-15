@@ -32,6 +32,7 @@ namespace YAInventory.Services
 
         public SyncStatus Status => _status;
         public event Action<string>? SyncMessageChanged;
+        public event Action?         SyncCompleted;
 
         public SyncService(LocalStorageService local, MongoDbService mongo, SyncStatus status)
         {
@@ -103,6 +104,7 @@ namespace YAInventory.Services
                 _status.LastSync = DateTime.UtcNow;
 
                 UpdateStatus(SyncState.Success, "Sync complete");
+                SyncCompleted?.Invoke();
             }
             catch (Exception ex)
             {
@@ -116,36 +118,54 @@ namespace YAInventory.Services
 
         private async Task SyncProductsAsync()
         {
+            var settings = _local.LoadSettings();
+
             // 1. Load local products
             var localProducts = await _local.LoadProductsAsync();
 
-            // 2. Load remote products
-            var remoteProducts = await _mongo.GetAllProductsAsync();
+            var lastSync = settings.LastSyncUtc ?? DateTime.MinValue;
+
+            // 2. Load remote products (Delta pull if not first sync)
+            var remoteProducts = lastSync == DateTime.MinValue
+                ? await _mongo.GetAllProductsAsync()
+                : await _mongo.GetProductsUpdatedAfterAsync(lastSync);
 
             // 3. Merge: build a dictionary keyed by barcode
             var merged = localProducts.ToDictionary(p => p.Barcode);
 
+            bool needsLocalSave = false;
             foreach (var remote in remoteProducts)
             {
                 if (merged.TryGetValue(remote.Barcode, out var local))
                 {
                     // Conflict resolution: latest UpdatedAt wins
                     if (remote.UpdatedAt > local.UpdatedAt)
+                    {
                         merged[remote.Barcode] = remote;
+                        needsLocalSave = true;
+                    }
                 }
                 else
                 {
                     merged[remote.Barcode] = remote;
+                    needsLocalSave = true;
                 }
             }
 
             var finalList = merged.Values.ToList();
 
-            // 4. Push merged set back to local
-            await _local.SaveProductsAsync(finalList);
+            // 4. Push merged set back to local (only if we pulled newer items)
+            if (needsLocalSave)
+            {
+                await _local.SaveProductsAsync(finalList);
+            }
 
-            // 5. Push merged set back to Mongo (upsert)
-            await _mongo.UpsertManyProductsAsync(finalList);
+            // 5. Push local updates to Mongo
+            var localUpdates = finalList.Where(p => p.UpdatedAt > lastSync).ToList();
+            if (localUpdates.Count > 0)
+            {
+                await _mongo.UpsertManyProductsAsync(localUpdates);
+            }
         }
 
         // ── Helpers ────────────────────────────────────────────────────────

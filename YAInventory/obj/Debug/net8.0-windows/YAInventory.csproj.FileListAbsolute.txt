@@ -70,3 +70,4 @@ C:\Projects\YA Inventory\YAInventory\obj\Debug\net8.0-windows\YAInventory.genrun
 C:\Projects\YA Inventory\YAInventory\obj\Debug\net8.0-windows\ref\YAInventory.dll
 C:\Projects\YA Inventory\YAInventory\obj\Debug\net8.0-windows\Views\ReceiptHistoryView.baml
 C:\Projects\YA Inventory\YAInventory\obj\Debug\net8.0-windows\Views\ReceiptHistoryView.g.cs
+C:\Projects\YA Inventory\YAInventory\obj\Debug\net8.0-windows\YAInventory.sourcelink.json

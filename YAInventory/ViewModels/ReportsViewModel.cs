@@ -48,6 +48,21 @@ namespace YAInventory.ViewModels
         public ObservableCollection<TopProductRow>     TopProducts    { get; } = new();
         public ObservableCollection<SalesBarData>      ChartData      { get; } = new();
 
+        // ── Dialog ─────────────────────────────────────────────────────────
+        private bool _showInvoiceDialog;
+        public bool ShowInvoiceDialog
+        {
+            get => _showInvoiceDialog;
+            set => SetProperty(ref _showInvoiceDialog, value);
+        }
+
+        private Sale? _selectedInvoice;
+        public Sale? SelectedInvoice
+        {
+            get => _selectedInvoice;
+            set => SetProperty(ref _selectedInvoice, value);
+        }
+
         // ── Commands ───────────────────────────────────────────────────────
         public ICommand RefreshCommand        { get; }
         public ICommand ExportSalesCommand    { get; }
@@ -55,6 +70,8 @@ namespace YAInventory.ViewModels
         public ICommand SetTodayCommand       { get; }
         public ICommand SetWeekCommand        { get; }
         public ICommand SetMonthCommand       { get; }
+        public ICommand ViewInvoiceCommand    { get; }
+        public ICommand CloseInvoiceCommand   { get; }
 
         public ReportsViewModel(MainViewModel main)
         {
@@ -62,9 +79,22 @@ namespace YAInventory.ViewModels
             RefreshCommand         = new AsyncRelayCommand(LoadAsync);
             ExportSalesCommand     = new AsyncRelayCommand(ExportSalesAsync);
             ExportInventoryCommand = new AsyncRelayCommand(ExportInventoryAsync);
-            SetTodayCommand        = new RelayCommand(_ => { FromDate = DateTime.Today; ToDate = DateTime.Today; });
-            SetWeekCommand         = new RelayCommand(_ => { FromDate = DateTime.Today.AddDays(-6); ToDate = DateTime.Today; });
-            SetMonthCommand        = new RelayCommand(_ => { FromDate = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1); ToDate = DateTime.Today; });
+            SetTodayCommand = new RelayCommand(_ => { FromDate = DateTime.Today; ToDate = DateTime.Today; });
+            SetWeekCommand  = new RelayCommand(_ => { FromDate = DateTime.Today.AddDays(-6); ToDate = DateTime.Today; });
+            SetMonthCommand = new RelayCommand(_ => { FromDate = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1); ToDate = DateTime.Today; });
+
+            ViewInvoiceCommand = new RelayCommand(s => {
+                if (s is Sale sale)
+                {
+                    SelectedInvoice = sale;
+                    ShowInvoiceDialog = true;
+                }
+            });
+
+            CloseInvoiceCommand = new RelayCommand(_ => {
+                ShowInvoiceDialog = false;
+                SelectedInvoice = null;
+            });
 
             _ = LoadAsync();
         }
