@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("YAInventory")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+6b59966a5bbee7ccfe8e6e67e828c1c6eb20038d")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+8353baf455e91d650f7d7eb2ea3d0318f2a74f85")]
 [assembly: System.Reflection.AssemblyProductAttribute("YAInventory")]
 [assembly: System.Reflection.AssemblyTitleAttribute("YAInventory")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
