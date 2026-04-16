@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="YAInventory/YA.png" alt="YA Inventory Logo" width="120" />
+  <img src="YA.png" alt="YA Inventory Logo" width="120" />
 </div>
 
 # YA Inventory POS
@@ -15,6 +15,11 @@ A modern, high-performance Point of Sale (POS) and Inventory Management system b
 - **Dashboard Analytics**: Visualise your daily sales volume, monitor recent transactions, and investigate critical low-stock warnings at a single glance.
 - **Data Persistence**: Offline-first architecture using rapid local CSV storage, combined with robust background synchronization to **MongoDB Atlas Cloud** for enterprise reliability and backups.
 - **Hardware Integrations**: Natively integrates with standard POS thermal ESC/POS printers to instantly generate professional customer receipts.
+
+## 🖼️ Screenshot
+
+<img width="1913" height="1079" alt="image" src="https://github.com/user-attachments/assets/43aca690-9f21-4c0f-9f5d-4bed39afbb87" />
+
 
 ## 🚀 Tech Stack
 
