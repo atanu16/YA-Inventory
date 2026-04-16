@@ -19,6 +19,7 @@
             <conv:StringEqualsConverter        x:Key="StrEq"/>
             <conv:BarHeightConverter           x:Key="BarHeight"/>
             <conv:MaxValueConverter            x:Key="MaxValue"/>
+            <conv:GreaterThanZeroConverter     x:Key="GreaterThanZero"/>
 
             <!-- Global font -->
             <Style TargetType="Window">

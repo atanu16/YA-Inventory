@@ -14,7 +14,7 @@ namespace YAInventory.Helpers
             var ws = wb.Worksheets.Add("Inventory");
 
             // Header row
-            var headers = new[] { "Product ID", "Name", "Barcode", "Price", "Quantity", "Category", "Discount %", "Stock Status", "Last Updated" };
+            var headers = new[] { "Product ID", "Name", "Barcode", "Price", "Quantity", "Category", "Sale Price", "Stock Status", "Last Updated" };
             for (int i = 0; i < headers.Length; i++)
             {
                 var cell = ws.Cell(1, i + 1);
@@ -33,7 +33,7 @@ namespace YAInventory.Helpers
                 ws.Cell(row, 4).Value = (double)p.Price;
                 ws.Cell(row, 5).Value = p.Quantity;
                 ws.Cell(row, 6).Value = p.Category;
-                ws.Cell(row, 7).Value = (double)p.DefaultDiscount;
+                ws.Cell(row, 7).Value = (double)p.SalePrice;
                 ws.Cell(row, 8).Value = p.StockStatusLabel;
                 ws.Cell(row, 9).Value = p.UpdatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm");
 

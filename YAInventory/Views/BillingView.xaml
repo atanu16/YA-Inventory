@@ -141,12 +141,41 @@
                                 </DataGridTemplateColumn.CellTemplate>
                             </DataGridTemplateColumn>
 
-                            <DataGridTextColumn Header="Disc %"
-                                                Binding="{Binding DiscountPercent, UpdateSourceTrigger=PropertyChanged}"
-                                                Width="60"/>
-                            <DataGridTextColumn Header="Disc ₹"
-                                                Binding="{Binding DiscountFlat, UpdateSourceTrigger=PropertyChanged}"
-                                                Width="60"/>
+                            <!-- Savings badge column -->
+                            <DataGridTemplateColumn Header="Savings" Width="80" IsReadOnly="True">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <Border CornerRadius="10" Padding="6,2" Margin="2"
+                                                HorizontalAlignment="Center" VerticalAlignment="Center">
+                                            <Border.Style>
+                                                <Style TargetType="Border">
+                                                    <Setter Property="Background" Value="Transparent"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding DiscountAmount, Converter={StaticResource GreaterThanZero}}" Value="True">
+                                                            <Setter Property="Background" Value="#1522C55E"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Border.Style>
+                                            <TextBlock FontSize="11" FontWeight="SemiBold" HorizontalAlignment="Center">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="Text" Value="—"/>
+                                                        <Setter Property="Foreground" Value="{StaticResource TextDimBrush}"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding DiscountAmount, Converter={StaticResource GreaterThanZero}}" Value="True">
+                                                                <Setter Property="Text" Value="{Binding DiscountAmount, StringFormat='-₹{0:N0}'}"/>
+                                                                <Setter Property="Foreground" Value="#22C55E"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                        </Border>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+
                             <DataGridTextColumn Header="Total"
                                                 Binding="{Binding Total, StringFormat='₹{0:N2}'}"
                                                 Width="90" IsReadOnly="True"/>

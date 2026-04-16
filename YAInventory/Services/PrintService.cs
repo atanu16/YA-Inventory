@@ -13,8 +13,8 @@ namespace YAInventory.Services
     /// </summary>
     public class PrintService
     {
-        private const int PaperWidthPx = 560; // ~80mm at 72dpi
-        private const int Margin       = 10;
+        // No hardcoded paper width — we derive it from the actual printer's margin bounds at runtime.
+        private const int Margin = 8;
 
         private AppSettings? _settings;
         private Sale?         _currentSale;
@@ -30,8 +30,8 @@ namespace YAInventory.Services
             _currentSale = sale;
 
             var pd = new PrintDocument();
-            pd.DefaultPageSettings.PaperSize = new PaperSize("Custom", PaperWidthPx, 1400);
-            pd.DefaultPageSettings.Margins   = new Margins(Margin, Margin, Margin, Margin);
+            // Let the printer's own paper size determine the width; just shrink margins.
+            pd.DefaultPageSettings.Margins = new Margins(Margin, Margin, Margin, Margin);
 
             if (!string.IsNullOrWhiteSpace(printerName))
                 pd.PrinterSettings.PrinterName = printerName;
@@ -54,14 +54,24 @@ namespace YAInventory.Services
             if (_currentSale is null || _settings is null || e.Graphics is null) return;
 
             var g = e.Graphics;
-            int x = Margin;
-            int w = PaperWidthPx - Margin * 2;
-            _printY = Margin;
 
-            var fontTitle = new Font("Courier New", 12, FontStyle.Bold);
-            _fontBold   = new Font("Courier New", 8,  FontStyle.Bold);
-            _fontNormal = new Font("Courier New", 8,  FontStyle.Regular);
-            _fontSmall  = new Font("Courier New", 7,  FontStyle.Regular);
+            // Derive printable area from the actual printer at runtime — works for
+            // any paper size (58 mm, 76 mm, 80 mm, A4, etc.).
+            int x = e.MarginBounds.Left;
+            int w = e.MarginBounds.Width;
+            _printY = e.MarginBounds.Top;
+
+            // Scale fonts proportionally so small paper (58 mm ≈ 164 px) still fits.
+            // Reference width is 80 mm ≈ 227 px at 72 dpi; we base sizes on that.
+            float scale      = Math.Max(0.75f, Math.Min(1.25f, w / 210f));
+            float titlePt    = (float)Math.Round(11f * scale);
+            float normalPt   = (float)Math.Round(7.5f * scale);
+            float smallPt    = (float)Math.Round(6.5f * scale);
+
+            var fontTitle = new Font("Courier New", titlePt, FontStyle.Bold);
+            _fontBold   = new Font("Courier New", normalPt, FontStyle.Bold);
+            _fontNormal = new Font("Courier New", normalPt, FontStyle.Regular);
+            _fontSmall  = new Font("Courier New", smallPt,  FontStyle.Regular);
 
             var black = Brushes.Black;
 
@@ -76,33 +86,40 @@ namespace YAInventory.Services
 
             // ── Invoice info ───────────────────────────────────────────────
             DrawLine(g, $"Invoice : {_currentSale.SaleId}", _fontNormal, black, x);
-            DrawLine(g, $"Date    : {_currentSale.SaleDate:dd-MMM-yyyy HH:mm}", _fontNormal, black, x);
+            DrawLine(g, $"Date    : {_currentSale.SaleDate:dd-MMM-yyyy hh:mm tt}", _fontNormal, black, x);
             DrawLine(g, $"Payment : {_currentSale.PaymentMethod}", _fontNormal, black, x);
 
             DrawDivider(g, w, x);
 
             // ── Column headers ─────────────────────────────────────────────
-            DrawItemRow(g, "Item", "Qty", "Price", "Total", _fontBold, black, w, x);
+            DrawItemRow5(g, "Item", "Qty", "MRP", "Disc MRP", "Total", _fontBold, black, w, x);
             DrawDivider(g, w, x);
 
-            // ── Items ──────────────────────────────────────────────────────
+            // ── Items ────────────────────────────────────────────────────────
             string sym = _settings.CurrencySymbol;
+            decimal totalSavings = 0;
+
             foreach (var item in _currentSale.Items)
             {
-                DrawItemRow(g, 
-                    TruncateName(item.Name, 18), 
-                    item.Quantity.ToString(), 
-                    $"{sym}{item.UnitPrice:N2}", 
-                    $"{sym}{item.Total:N2}", 
+                string discMrpCol = item.UnitDiscount > 0
+                    ? $"{sym}{item.UnitPrice:N2}"
+                    : "—";
+
+                // Compute max name chars dynamically from available col-1 space
+                int nameColPx  = (int)(w * 0.32);
+                float charW    = g.MeasureString("W", _fontNormal!).Width;
+                int maxChars   = Math.Max(6, (int)(nameColPx / charW));
+
+                DrawItemRow5(g,
+                    TruncateName(item.Name, maxChars),
+                    item.Quantity.ToString(),
+                    $"{sym}{item.OriginalPrice:N2}",
+                    discMrpCol,
+                    $"{sym}{item.Total:N2}",
                     _fontNormal, black, w, x);
 
-                if (item.DiscountPercent > 0 || item.DiscountFlat > 0)
-                {
-                    string discStr = item.DiscountPercent > 0
-                        ? $"  Discount: -{item.DiscountPercent}%"
-                        : $"  Discount: -{sym}{item.DiscountFlat:N2}";
-                    DrawLine(g, discStr, _fontSmall, black, x);
-                }
+                if (item.UnitDiscount > 0)
+                    totalSavings += item.DiscountAmount;
             }
 
             DrawDivider(g, w, x);
@@ -120,6 +137,16 @@ namespace YAInventory.Services
 
             // ── Footer ─────────────────────────────────────────────────────
             _printY += 4;
+
+            // ── "You Saved" banner (when there are savings) ─────────
+            if (totalSavings > 0)
+            {
+                var fontSaved = new Font("Courier New", 9, FontStyle.Bold);
+                DrawCentered(g, $"★ YOU SAVED {sym}{totalSavings:N2}! ★", fontSaved, black, w, x);
+                _printY += 2;
+                fontSaved.Dispose();
+            }
+
             DrawCentered(g, "Thank you for your purchase!", _fontSmall, black, w, x);
             DrawCentered(g, "Powered by YA Inventory", _fontSmall, Brushes.Gray, w, x);
 
@@ -161,27 +188,32 @@ namespace YAInventory.Services
             _printY += (int)rSize.Height + 1;
         }
 
-        // ── Item row drawing ───────────────────────────────────────────────
-        private void DrawItemRow(Graphics g, string col1, string col2, string col3, string col4, Font font, Brush brush, int w, int x)
+        // ── 5-column item row drawing ─────────────────────────────────────
+        private void DrawItemRow5(Graphics g, string item, string qty, string price, string sale, string total, Font font, Brush brush, int w, int x)
         {
-            // Col 1: Item name (Left aligned)
-            g.DrawString(col1, font, brush, x, _printY);
+            // Col 1: Item name (Left)
+            g.DrawString(item, font, brush, x, _printY);
 
-            // Col 2: Qty (Right aligned near middle)
-            int c2X = x + (w / 2) - 40;
-            var c2Size = g.MeasureString(col2, font);
-            g.DrawString(col2, font, brush, c2X - c2Size.Width, _printY);
+            // Col 2: Qty (centered at ~33%)
+            int c2X = x + (int)(w * 0.33);
+            var c2S = g.MeasureString(qty, font);
+            g.DrawString(qty, font, brush, c2X - c2S.Width / 2f, _printY);
 
-            // Col 3: Price (Right aligned at ~75%)
-            int c3X = x + (int)(w * 0.75);
-            var c3Size = g.MeasureString(col3, font);
-            g.DrawString(col3, font, brush, c3X - c3Size.Width, _printY);
+            // Col 3: Price (right-aligned at ~52%)
+            int c3X = x + (int)(w * 0.52);
+            var c3S = g.MeasureString(price, font);
+            g.DrawString(price, font, brush, c3X - c3S.Width, _printY);
 
-            // Col 4: Total (Right aligned at right edge)
-            var c4Size = g.MeasureString(col4, font);
-            g.DrawString(col4, font, brush, x + w - c4Size.Width, _printY);
+            // Col 4: Sale Price (right-aligned at ~72%)
+            int c4X = x + (int)(w * 0.75);
+            var c4S = g.MeasureString(sale, font);
+            g.DrawString(sale, font, brush, c4X - c4S.Width, _printY);
 
-            _printY += (int)Math.Max(c2Size.Height, c4Size.Height) + 1;
+            // Col 5: Total (right edge)
+            var c5S = g.MeasureString(total, font);
+            g.DrawString(total, font, brush, x + w - c5S.Width, _printY);
+
+            _printY += (int)Math.Max(c2S.Height, c5S.Height) + 1;
         }
 
         private static string TruncateName(string name, int max) =>
@@ -214,14 +246,23 @@ namespace YAInventory.Services
             Str(new string('-', 32)); Nl();
             Left();
             Str($"Invoice: {sale.SaleId}"); Nl();
-            Str($"Date   : {sale.SaleDate:dd-MMM-yyyy HH:mm}"); Nl();
+            Str($"Date   : {sale.SaleDate:dd-MMM-yyyy hh:mm tt}"); Nl();
             Str(new string('-', 32)); Nl();
 
             string sym = settings.CurrencySymbol;
+            decimal totalSavings = 0;
+
             foreach (var item in sale.Items)
             {
-                Str($"{TruncateName(item.Name, 18),-18}{item.Quantity,3}"); Nl();
-                Str($"  {sym}{item.UnitPrice:N2} x{item.Quantity} = {sym}{item.Total:N2}"); Nl();
+                Str($"{TruncateName(item.Name, 16),-16} x{item.Quantity}"); Nl();
+                if (item.UnitDiscount > 0)
+                {
+                    Str($"  MRP:{sym}{item.OriginalPrice:N2} Disc:{sym}{item.UnitPrice:N2}"); Nl();
+                    totalSavings += item.DiscountAmount;
+                }
+                else
+                    Str($"  MRP:{sym}{item.OriginalPrice:N2}"); Nl();
+                Str($"  Total: {sym}{item.Total:N2}"); Nl();
             }
 
             Str(new string('-', 32)); Nl();
@@ -233,6 +274,14 @@ namespace YAInventory.Services
             Str($"{"TOTAL:",-16}{sym}{sale.Total,10:N2}"); Nl();
             Bold(false);
             Str(new string('-', 32)); Nl();
+
+            // ── "You Saved" banner ─────────────────
+            if (totalSavings > 0)
+            {
+                Center(); Bold(true);
+                Str($"* YOU SAVED {sym}{totalSavings:N2}! *"); Nl();
+                Bold(false);
+            }
 
             Center(); Str("Thank you!"); Nl();
             Nl(); Nl(); Nl();

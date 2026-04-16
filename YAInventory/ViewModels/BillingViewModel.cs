@@ -158,12 +158,12 @@ namespace YAInventory.ViewModels
 
                 CartItems.Add(new CartItem
                 {
-                    ProductId       = product.ProductId,
-                    Barcode         = product.Barcode,
-                    Name            = product.Name,
-                    UnitPrice       = product.Price,
-                    Quantity        = 1,
-                    DiscountPercent = product.DefaultDiscount
+                    ProductId     = product.ProductId,
+                    Barcode       = product.Barcode,
+                    Name          = product.Name,
+                    OriginalPrice = product.Price,
+                    UnitPrice     = product.EffectivePrice,
+                    Quantity      = 1
                 });
             }
 
@@ -250,14 +250,15 @@ namespace YAInventory.ViewModels
                     PaymentMethod = PaymentMethod,
                     Items         = CartItems.Select(c => new SaleItem
                     {
-                        ProductId       = c.ProductId,
-                        Barcode         = c.Barcode,
-                        Name            = c.Name,
-                        UnitPrice       = c.UnitPrice,
-                        Quantity        = c.Quantity,
-                        DiscountPercent = c.DiscountPercent,
-                        DiscountFlat    = c.DiscountFlat,
-                        Total           = c.Total
+                        ProductId      = c.ProductId,
+                        Barcode        = c.Barcode,
+                        Name           = c.Name,
+                        OriginalPrice  = c.OriginalPrice,
+                        UnitPrice      = c.UnitPrice,
+                        Quantity       = c.Quantity,
+                        UnitDiscount   = c.UnitSavings,
+                        DiscountAmount = c.DiscountAmount,
+                        Total          = c.Total
                     }).ToList()
                 };
 

@@ -13,7 +13,7 @@ namespace YAInventory.ViewModels
         private readonly MainViewModel _main;
 
         // ── Date range ─────────────────────────────────────────────────────
-        private DateTime _fromDate = DateTime.Today.AddDays(-30);
+        private DateTime _fromDate = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
         private DateTime _toDate   = DateTime.Today;
 
         public DateTime FromDate
@@ -70,6 +70,8 @@ namespace YAInventory.ViewModels
         public ICommand SetTodayCommand       { get; }
         public ICommand SetWeekCommand        { get; }
         public ICommand SetMonthCommand       { get; }
+        public ICommand SetThisYearCommand    { get; }
+        public ICommand SetLastYearCommand    { get; }
         public ICommand ViewInvoiceCommand    { get; }
         public ICommand CloseInvoiceCommand   { get; }
 
@@ -82,6 +84,8 @@ namespace YAInventory.ViewModels
             SetTodayCommand = new RelayCommand(_ => { FromDate = DateTime.Today; ToDate = DateTime.Today; });
             SetWeekCommand  = new RelayCommand(_ => { FromDate = DateTime.Today.AddDays(-6); ToDate = DateTime.Today; });
             SetMonthCommand = new RelayCommand(_ => { FromDate = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1); ToDate = DateTime.Today; });
+            SetThisYearCommand = new RelayCommand(_ => { FromDate = new DateTime(DateTime.Today.Year, 1, 1); ToDate = DateTime.Today; });
+            SetLastYearCommand = new RelayCommand(_ => { FromDate = new DateTime(DateTime.Today.Year - 1, 1, 1); ToDate = new DateTime(DateTime.Today.Year - 1, 12, 31); });
 
             ViewInvoiceCommand = new RelayCommand(s => {
                 if (s is Sale sale)
@@ -150,9 +154,9 @@ namespace YAInventory.ViewModels
 
                 foreach (var t in topProds) TopProducts.Add(t);
 
-                // Chart data (show last 14 days or selected range, capped at 14)
+                // Chart data — show every day in the selected range (cap at 31 to avoid overflow)
                 ChartData.Clear();
-                int days = Math.Min(14, (ToDate - FromDate).Days + 1);
+                int days = Math.Min(31, (ToDate - FromDate).Days + 1);
                 for (int i = days - 1; i >= 0; i--)
                 {
                     var day = ToDate.AddDays(-i);

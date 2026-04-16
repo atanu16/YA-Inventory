@@ -9,46 +9,31 @@ namespace YAInventory.Models
     public class CartItem : INotifyPropertyChanged
     {
         private int _quantity;
-        private decimal _discountPercent;
-        private decimal _discountFlat;
 
         public string ProductId   { get; set; } = string.Empty;
         public string Barcode     { get; set; } = string.Empty;
         public string Name        { get; set; } = string.Empty;
+
+        /// <summary>Original MRP / list price.</summary>
+        public decimal OriginalPrice { get; set; }
+
+        /// <summary>Effective sale price per unit (may equal OriginalPrice if no sale).</summary>
         public decimal UnitPrice  { get; set; }
 
         public int Quantity
         {
             get => _quantity;
-            set { _quantity = value; OnPropertyChanged(); OnPropertyChanged(nameof(Total)); }
+            set { _quantity = value; OnPropertyChanged(); OnPropertyChanged(nameof(Total)); OnPropertyChanged(nameof(DiscountAmount)); }
         }
 
-        /// <summary>Percentage discount for this item (0-100).</summary>
-        public decimal DiscountPercent
-        {
-            get => _discountPercent;
-            set { _discountPercent = value; OnPropertyChanged(); OnPropertyChanged(nameof(Total)); }
-        }
+        /// <summary>Per-unit savings (OriginalPrice − UnitPrice).</summary>
+        public decimal UnitSavings => OriginalPrice - UnitPrice;
 
-        /// <summary>Flat amount discount for this item.</summary>
-        public decimal DiscountFlat
-        {
-            get => _discountFlat;
-            set { _discountFlat = value; OnPropertyChanged(); OnPropertyChanged(nameof(Total)); }
-        }
+        /// <summary>Total discount amount for this line.</summary>
+        public decimal DiscountAmount => UnitSavings * Quantity;
 
-        /// <summary>Line total after discounts.</summary>
-        public decimal Total
-        {
-            get
-            {
-                var gross = UnitPrice * Quantity;
-                var percentOff = gross * (DiscountPercent / 100m);
-                return Math.Max(0, gross - percentOff - DiscountFlat);
-            }
-        }
-
-        public decimal DiscountAmount => (UnitPrice * Quantity) - Total;
+        /// <summary>Line total (at sale price).</summary>
+        public decimal Total => UnitPrice * Quantity;
 
         public event PropertyChangedEventHandler? PropertyChanged;
         protected void OnPropertyChanged([CallerMemberName] string? name = null)

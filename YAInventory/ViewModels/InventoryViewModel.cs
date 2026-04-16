@@ -70,6 +70,26 @@ namespace YAInventory.ViewModels
         public bool    IsEditMode    { get => _isEditMode;    set => SetProperty(ref _isEditMode, value); }
         public Product DialogProduct { get => _dialogProduct; set => SetProperty(ref _dialogProduct, value); }
 
+        // ── Qty-update dialog state ────────────────────────────────────────
+        private bool    _showQtyDialog;
+        private Product _qtyDialogProduct = new();
+        private string  _newQuantity = string.Empty;
+
+        public bool    ShowQtyDialog     { get => _showQtyDialog;     set => SetProperty(ref _showQtyDialog, value); }
+        public Product QtyDialogProduct  { get => _qtyDialogProduct;  set { SetProperty(ref _qtyDialogProduct, value); OnPropertyChanged(nameof(QtyPreviewTotal)); } }
+        public string  NewQuantity       { get => _newQuantity;       set { SetProperty(ref _newQuantity, value); OnPropertyChanged(nameof(QtyPreviewTotal)); } }
+
+        /// <summary>Live preview: current qty + what the user typed.</summary>
+        public string QtyPreviewTotal
+        {
+            get
+            {
+                if (int.TryParse(_newQuantity?.Trim(), out int added) && added >= 0)
+                    return (_qtyDialogProduct.Quantity + added).ToString();
+                return "—";
+            }
+        }
+
         // ── Stats ──────────────────────────────────────────────────────────
         public int TotalCount      => _allProducts.Count(p => !p.IsDeleted);
         public int LowStockCount   => _allProducts.Count(p => !p.IsDeleted && p.StockStatus == StockStatus.LowStock);
@@ -77,29 +97,35 @@ namespace YAInventory.ViewModels
         public string CurrencySymbol => _main.Settings.CurrencySymbol;
 
         // ── Commands ───────────────────────────────────────────────────────
-        public ICommand LoadCommand         { get; }
-        public ICommand AddProductCommand   { get; }
-        public ICommand EditProductCommand  { get; }
-        public ICommand DeleteProductCommand{ get; }
-        public ICommand SaveProductCommand  { get; }
-        public ICommand CancelDialogCommand { get; }
-        public ICommand BarcodeScannedCommand { get; }
-        public ICommand ExportCommand       { get; }
-        public ICommand RefreshCommand      { get; }
+        public ICommand LoadCommand          { get; }
+        public ICommand AddProductCommand    { get; }
+        public ICommand EditProductCommand   { get; }
+        public ICommand DeleteProductCommand { get; }
+        public ICommand SaveProductCommand   { get; }
+        public ICommand CancelDialogCommand  { get; }
+        public ICommand BarcodeScannedCommand{ get; }
+        public ICommand ExportCommand        { get; }
+        public ICommand RefreshCommand       { get; }
+        public ICommand UpdateQtyCommand     { get; }
+        public ICommand SaveQtyCommand       { get; }
+        public ICommand CancelQtyDialogCommand { get; }
 
         public InventoryViewModel(MainViewModel main)
         {
             _main = main;
 
-            LoadCommand          = new AsyncRelayCommand(LoadProductsAsync);
-            AddProductCommand    = new RelayCommand(_ => OpenAddDialog());
-            EditProductCommand   = new RelayCommand(p => OpenEditDialog(p as Product ?? SelectedProduct));
-            DeleteProductCommand = new AsyncRelayCommand(p => DeleteAsync(p as Product ?? SelectedProduct));
-            SaveProductCommand   = new AsyncRelayCommand(SaveProductAsync);
-            CancelDialogCommand  = new RelayCommand(_ => ShowDialog = false);
-            BarcodeScannedCommand= new AsyncRelayCommand(HandleBarcodeAsync);
-            ExportCommand        = new AsyncRelayCommand(ExportToExcelAsync);
-            RefreshCommand       = new AsyncRelayCommand(RefreshAndSyncAsync);
+            LoadCommand           = new AsyncRelayCommand(LoadProductsAsync);
+            AddProductCommand     = new RelayCommand(_ => OpenAddDialog());
+            EditProductCommand    = new RelayCommand(p => OpenEditDialog(p as Product ?? SelectedProduct));
+            DeleteProductCommand  = new AsyncRelayCommand(p => DeleteAsync(p as Product ?? SelectedProduct));
+            SaveProductCommand    = new AsyncRelayCommand(SaveProductAsync);
+            CancelDialogCommand   = new RelayCommand(_ => ShowDialog = false);
+            BarcodeScannedCommand = new AsyncRelayCommand(HandleBarcodeAsync);
+            ExportCommand         = new AsyncRelayCommand(ExportToExcelAsync);
+            RefreshCommand        = new AsyncRelayCommand(RefreshAndSyncAsync);
+            UpdateQtyCommand      = new RelayCommand(p => OpenQtyDialog(p as Product ?? SelectedProduct));
+            SaveQtyCommand        = new AsyncRelayCommand(SaveQtyAsync);
+            CancelQtyDialogCommand= new RelayCommand(_ => ShowQtyDialog = false);
 
             _ = LoadProductsAsync();
         }
@@ -185,18 +211,16 @@ namespace YAInventory.ViewModels
             var existing = _allProducts.FirstOrDefault(p => p.Barcode == code);
             if (existing != null)
             {
-                // Jump to product in list
-                SearchText      = code;
-                SelectedProduct = existing;
+                // Directly open the edit view for the existing product
                 _main.Notify($"Found: {existing.Name}", "Info");
+                OpenEditDialog(existing);
             }
             else
             {
                 // New product — open add dialog pre-filled with barcode
                 var newProduct = new Product
                 {
-                    Barcode          = code,
-                    DefaultDiscount  = _main.Settings.DefaultDiscountPercent
+                    Barcode  = code
                 };
                 OpenAddDialog(newProduct);
                 _main.Notify($"New barcode {code} — fill in product details", "Warning");
@@ -206,10 +230,7 @@ namespace YAInventory.ViewModels
         // ── Dialog helpers ─────────────────────────────────────────────────
         private void OpenAddDialog(Product? template = null)
         {
-            DialogProduct = template ?? new Product
-            {
-                DefaultDiscount = _main.Settings.DefaultDiscountPercent
-            };
+            DialogProduct = template ?? new Product();
             IsEditMode = false;
             ShowDialog = true;
         }
@@ -226,7 +247,7 @@ namespace YAInventory.ViewModels
                 Price           = product.Price,
                 Quantity        = product.Quantity,
                 Category        = product.Category,
-                DefaultDiscount = product.DefaultDiscount,
+                SalePrice       = product.SalePrice,
                 ImagePath       = product.ImagePath,
                 CreatedAt       = product.CreatedAt,
                 UpdatedAt       = product.UpdatedAt,
@@ -289,6 +310,43 @@ namespace YAInventory.ViewModels
                     // Trigger a sync cycle so it picks up the change soon
                     _ = _main.Sync.RunSyncCycleAsync();
                 }
+            }
+            finally { ClearBusy(); }
+        }
+
+        // ── Update Quantity ────────────────────────────────────────────────
+        private void OpenQtyDialog(Product? product)
+        {
+            if (product is null) return;
+            QtyDialogProduct = product;
+            NewQuantity      = "0";
+            ShowQtyDialog    = true;
+        }
+
+        private async Task SaveQtyAsync(object? _)
+        {
+            if (!int.TryParse(NewQuantity?.Trim(), out int addQty) || addQty < 0)
+            {
+                _main.Notify("Please enter a valid non-negative quantity to add.", "Error");
+                return;
+            }
+
+            SetBusy("Updating quantity…");
+            try
+            {
+                var p        = QtyDialogProduct;
+                p.Quantity  += addQty;
+                p.UpdatedAt  = DateTime.UtcNow;
+                await _main.Storage.UpsertProductAsync(p);
+                if (_main.Mongo.IsConnected)
+                    await _main.Mongo.UpsertProductAsync(p);
+                _main.Notify($"{p.Name}: +{addQty} → now {p.Quantity}.", "Success");
+
+                ShowQtyDialog = false;
+                await LoadProductsAsync();
+
+                if (!_main.Mongo.IsConnected)
+                    _ = _main.Sync.RunSyncCycleAsync();
             }
             finally { ClearBusy(); }
         }

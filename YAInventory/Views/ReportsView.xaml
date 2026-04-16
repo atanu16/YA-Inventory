@@ -71,7 +71,11 @@
                 <Button Style="{StaticResource BtnSecondary}" Command="{Binding SetWeekCommand}"
                         Content="Last 7 Days" Margin="0,0,4,0"/>
                 <Button Style="{StaticResource BtnSecondary}" Command="{Binding SetMonthCommand}"
-                        Content="This Month" Margin="0"/>
+                        Content="This Month" Margin="0,0,4,0"/>
+                <Button Style="{StaticResource BtnSecondary}" Command="{Binding SetThisYearCommand}"
+                        Content="This Year" Margin="0,0,4,0"/>
+                <Button Style="{StaticResource BtnSecondary}" Command="{Binding SetLastYearCommand}"
+                        Content="Last Year" Margin="0"/>
 
             </WrapPanel>
         </Border>

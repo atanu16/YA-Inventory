@@ -28,15 +28,42 @@ namespace YAInventory.ViewModels
         public int     LowStockCount   { get => _lowStockCount;    set => SetProperty(ref _lowStockCount, value); }
         public int     OutOfStockCount { get => _outOfStockCount;  set => SetProperty(ref _outOfStockCount, value); }
 
+        // ── Today's Payments ───────────────────────────────────────────────
+        private decimal _cashPaymentsToday;
+        private decimal _upiPaymentsToday;
+        private decimal _otherPaymentsToday;
+
+        public decimal CashPaymentsToday  { get => _cashPaymentsToday;  set => SetProperty(ref _cashPaymentsToday, value); }
+        public decimal UpiPaymentsToday   { get => _upiPaymentsToday;   set => SetProperty(ref _upiPaymentsToday, value); }
+        public decimal OtherPaymentsToday { get => _otherPaymentsToday; set => SetProperty(ref _otherPaymentsToday, value); }
+
         // ── Lists ──────────────────────────────────────────────────────────
         public ObservableCollection<Product> LowStockProducts  { get; } = new();
         public ObservableCollection<Sale>    RecentSales        { get; } = new();
         public ObservableCollection<SalesBarData> WeeklySalesChart { get; } = new();
 
+        // ── Dialog state ───────────────────────────────────────────────────
+        private bool _showInvoiceDialog;
+        public bool ShowInvoiceDialog
+        {
+            get => _showInvoiceDialog;
+            set => SetProperty(ref _showInvoiceDialog, value);
+        }
+
+        private Sale? _selectedInvoice;
+        public Sale? SelectedInvoice
+        {
+            get => _selectedInvoice;
+            set => SetProperty(ref _selectedInvoice, value);
+        }
+
         // ── Commands ───────────────────────────────────────────────────────
         public ICommand RefreshCommand       { get; }
         public ICommand GoToInventoryCommand { get; }
         public ICommand GoToBillingCommand   { get; }
+        public ICommand GoToReportsCommand   { get; }
+        public ICommand ViewInvoiceCommand   { get; }
+        public ICommand CloseInvoiceCommand  { get; }
 
         public string CurrencySymbol => _main.Settings.CurrencySymbol;
 
@@ -46,6 +73,20 @@ namespace YAInventory.ViewModels
             RefreshCommand       = new AsyncRelayCommand(LoadAsync);
             GoToInventoryCommand = new RelayCommand(_ => _main.Navigate("Inventory"));
             GoToBillingCommand   = new RelayCommand(_ => _main.Navigate("Billing"));
+            GoToReportsCommand   = new RelayCommand(_ => _main.Navigate("Reports"));
+            
+            ViewInvoiceCommand = new RelayCommand(s => {
+                if (s is Sale sale)
+                {
+                    SelectedInvoice = sale;
+                    ShowInvoiceDialog = true;
+                }
+            });
+
+            CloseInvoiceCommand = new RelayCommand(_ => {
+                ShowInvoiceDialog = false;
+                SelectedInvoice = null;
+            });
 
             _ = LoadAsync();
         }
@@ -65,10 +106,17 @@ namespace YAInventory.ViewModels
 
                 var sales  = await _main.Storage.LoadSalesAsync();
                 var today  = DateTime.Today;
-                TodaySales    = sales.Where(s => s.SaleDate.Date == today).Sum(s => s.Total);
+                var todaysSalesList = sales.Where(s => s.SaleDate.Date == today).ToList();
+                TodaySales    = todaysSalesList.Sum(s => s.Total);
                 MonthlySales  = sales.Where(s => s.SaleDate.Year  == today.Year &&
                                                   s.SaleDate.Month == today.Month)
                                      .Sum(s => s.Total);
+
+                // Today's Payment breakdown
+                CashPaymentsToday  = todaysSalesList.Where(s => string.Equals(s.PaymentMethod, "Cash", StringComparison.OrdinalIgnoreCase)).Sum(s => s.Total);
+                UpiPaymentsToday   = todaysSalesList.Where(s => string.Equals(s.PaymentMethod, "UPI", StringComparison.OrdinalIgnoreCase)).Sum(s => s.Total);
+                OtherPaymentsToday = todaysSalesList.Where(s => !string.Equals(s.PaymentMethod, "Cash", StringComparison.OrdinalIgnoreCase) 
+                                                             && !string.Equals(s.PaymentMethod, "UPI", StringComparison.OrdinalIgnoreCase)).Sum(s => s.Total);
 
                 // Low stock list (top 10)
                 LowStockProducts.Clear();
@@ -76,9 +124,9 @@ namespace YAInventory.ViewModels
                                          .OrderBy(p => p.Quantity).Take(10))
                     LowStockProducts.Add(p);
 
-                // Recent sales (last 8)
+                // Recent sales (last 15)
                 RecentSales.Clear();
-                foreach (var s in sales.OrderByDescending(s => s.SaleDate).Take(8))
+                foreach (var s in sales.OrderByDescending(s => s.SaleDate).Take(15))
                     RecentSales.Add(s);
 
                 // Weekly chart data (last 7 days)

@@ -68,3 +68,6 @@ C:\Projects\YA Inventory\YAInventory\obj\Release\net8.0-windows\refint\YAInvento
 C:\Projects\YA Inventory\YAInventory\obj\Release\net8.0-windows\YAInventory.pdb
 C:\Projects\YA Inventory\YAInventory\obj\Release\net8.0-windows\YAInventory.genruntimeconfig.cache
 C:\Projects\YA Inventory\YAInventory\obj\Release\net8.0-windows\ref\YAInventory.dll
+C:\Projects\YA Inventory\YAInventory\obj\Release\net8.0-windows\Views\ReceiptHistoryView.baml
+C:\Projects\YA Inventory\YAInventory\obj\Release\net8.0-windows\Views\ReceiptHistoryView.g.cs
+C:\Projects\YA Inventory\YAInventory\obj\Release\net8.0-windows\YAInventory.sourcelink.json

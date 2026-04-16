@@ -138,7 +138,7 @@ namespace YAInventory.ViewModels
                 await Task.Delay(3000);
                 ShowWelcome = false;
 
-                Notify($"Welcome to {Settings.ShopName}!", "Info");
+                Notify($"This software is a tool for billing and inventory management. Users are responsible for correct data entry, GST compliance, and tax filing. The developer is not liable for any financial or legal issues arising from its use.", "Info");
             }
             finally { ClearBusy(); }
         }

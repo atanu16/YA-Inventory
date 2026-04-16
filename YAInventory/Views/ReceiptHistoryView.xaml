@@ -276,7 +276,7 @@
                             <DataGridTextColumn Header="Product" Binding="{Binding Name}"           Width="*"/>
                             <DataGridTextColumn Header="Qty"     Binding="{Binding Quantity}"       Width="40"/>
                             <DataGridTextColumn Header="Price"   Binding="{Binding UnitPrice, StringFormat='₹{0:N2}'}" Width="72"/>
-                            <DataGridTextColumn Header="Disc%"   Binding="{Binding DiscountPercent, StringFormat='{}{0}%'}" Width="48"/>
+                            <DataGridTextColumn Header="Saved"   Binding="{Binding DiscountAmount, StringFormat='₹{0:N2}'}" Width="60"/>
                             <DataGridTextColumn Header="Total"   Binding="{Binding Total, StringFormat='₹{0:N2}'}" Width="72"/>
                         </DataGrid.Columns>
                     </DataGrid>

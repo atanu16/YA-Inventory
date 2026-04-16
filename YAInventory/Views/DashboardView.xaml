@@ -3,7 +3,8 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="clr-namespace:YAInventory.ViewModels"
              FontFamily="Segoe UI">
-    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+    <Grid>
+        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
         <StackPanel Margin="20,16,20,20">
 
             <!-- ── Page header ─────────────────────────────────────────── -->
@@ -23,7 +24,7 @@
             </Grid>
 
             <!-- ── KPI cards row ──────────────────────────────────────── -->
-            <UniformGrid Rows="1" Columns="4" Margin="0,0,0,12">
+            <UniformGrid Rows="1" Columns="5" Margin="0,0,0,12">
 
                 <!-- Today's Sales -->
                 <Border Style="{StaticResource KpiCard}">
@@ -117,11 +118,11 @@
                 </Border>
 
                 <!-- Low Stock Alerts -->
-                <Border Style="{StaticResource KpiCard}" Margin="0,0,0,0">
+                <Border Style="{StaticResource KpiCard}" Margin="0,0,8,0">
                     <Border.Background>
                         <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                            <GradientStop Color="#281000" Offset="0"/>
-                            <GradientStop Color="#381800" Offset="1"/>
+                            <GradientStop Color="#281A00" Offset="0"/>
+                            <GradientStop Color="#382400" Offset="1"/>
                         </LinearGradientBrush>
                     </Border.Background>
                     <Grid>
@@ -136,23 +137,54 @@
                                 <TextBlock Text="⚠" FontSize="13"
                                            HorizontalAlignment="Center" VerticalAlignment="Center"/>
                             </Border>
-                            <TextBlock Text="Stock Alerts" Style="{StaticResource Caption}"
+                            <TextBlock Text="Low Stock" Style="{StaticResource Caption}"
                                        VerticalAlignment="Center" Margin="8,0,0,0"/>
                         </StackPanel>
                         <TextBlock Grid.Row="1" Text="{Binding LowStockCount}"
                                    FontSize="22" FontWeight="Bold" Foreground="White" Margin="0,8,0,2"/>
                         <TextBlock Grid.Row="2"
-                                   Text="{Binding OutOfStockCount, StringFormat='{}{0} out of stock'}"
+                                   Text="Items running low"
+                                   Style="{StaticResource Caption}"/>
+                    </Grid>
+                </Border>
+
+                <!-- Out of Stock Alerts -->
+                <Border Style="{StaticResource KpiCard}" Margin="0,0,0,0">
+                    <Border.Background>
+                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                            <GradientStop Color="#280A0A" Offset="0"/>
+                            <GradientStop Color="#381010" Offset="1"/>
+                        </LinearGradientBrush>
+                    </Border.Background>
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <StackPanel Orientation="Horizontal" Grid.Row="0">
+                            <Border Width="30" Height="30" CornerRadius="8"
+                                    Background="{StaticResource RedGradient}">
+                                <TextBlock Text="✕" FontSize="12" Foreground="White"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <TextBlock Text="Out of Stock" Style="{StaticResource Caption}"
+                                       VerticalAlignment="Center" Margin="8,0,0,0"/>
+                        </StackPanel>
+                        <TextBlock Grid.Row="1" Text="{Binding OutOfStockCount}"
+                                   FontSize="22" FontWeight="Bold" Foreground="White" Margin="0,8,0,2"/>
+                        <TextBlock Grid.Row="2"
+                                   Text="Zero inventory"
                                    Style="{StaticResource Caption}"/>
                     </Grid>
                 </Border>
             </UniformGrid>
 
             <!-- ── Weekly sales chart + Low stock ────────────────────── -->
-            <Grid Margin="0,0,0,10" Height="220">
+            <Grid Margin="0,0,0,10" Height="320">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="2*"/>
-                    <ColumnDefinition Width="Auto" MaxWidth="300"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="280"/>
                 </Grid.ColumnDefinitions>
 
                 <!-- Sales bar chart -->
@@ -209,7 +241,7 @@
 
                 <!-- Low stock list -->
                 <Border Grid.Column="1" Style="{StaticResource GlassCard}"
-                        Padding="14" Width="280" Margin="0"
+                        Padding="14" Margin="0"
                         VerticalAlignment="Stretch">
                     <DockPanel LastChildFill="True">
 
@@ -270,8 +302,15 @@
                 </Border>
             </Grid>
 
-            <!-- ── Recent sales ──────────────────────────────────────── -->
-            <Border Style="{StaticResource GlassCard}" Padding="18,14" Margin="0,0,0,0">
+            <!-- ── Bottom Row: Recent Sales & Payments ─────────────────── -->
+            <Grid Margin="0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="280"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Recent sales -->
+                <Border Grid.Column="0" Style="{StaticResource GlassCard}" Padding="18,14" Margin="0,0,10,0">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
@@ -288,8 +327,13 @@
                               ItemsSource="{Binding RecentSales}"
                               Style="{StaticResource GlassGrid}"
                               AutoGenerateColumns="False"
-                              IsReadOnly="True" MaxHeight="220"
+                              IsReadOnly="True" MaxHeight="400"
                               CanUserSortColumns="True">
+                        <DataGrid.InputBindings>
+                            <MouseBinding MouseAction="LeftDoubleClick"
+                                          Command="{Binding ViewInvoiceCommand}"
+                                          CommandParameter="{Binding SelectedItem, RelativeSource={RelativeSource AncestorType=DataGrid}}"/>
+                        </DataGrid.InputBindings>
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Invoice" Binding="{Binding SaleId}" Width="*"/>
                             <DataGridTextColumn Header="Date"    Binding="{Binding SaleDate, StringFormat='dd MMM HH:mm'}" Width="120"/>
@@ -299,13 +343,103 @@
                         </DataGrid.Columns>
                     </DataGrid>
 
-                    <Button Grid.Row="2" Style="{StaticResource BtnSecondary}"
-                            Command="{Binding GoToBillingCommand}"
-                            Content="New Sale →"
-                            HorizontalAlignment="Right" Margin="0,10,0,0"/>
+                    <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
+                        <Button Style="{StaticResource BtnSecondary}"
+                                Command="{Binding GoToReportsCommand}"
+                                Content="View More Reports" Margin="0,0,8,0"/>
+                        <Button Style="{StaticResource BtnPrimary}"
+                                Command="{Binding GoToBillingCommand}"
+                                Content="New Sale →"/>
+                    </StackPanel>
                 </Grid>
             </Border>
 
+            <!-- Today's Payment Breakdown -->
+            <Border Grid.Column="1" Style="{StaticResource GlassCard}" Padding="14,14" Margin="0" VerticalAlignment="Stretch">
+                <StackPanel>
+                    <!-- Title -->
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
+                        <TextBlock Text="💳" FontSize="13" VerticalAlignment="Center"/>
+                        <TextBlock Text="Today's Payments" Style="{StaticResource H3}" Margin="6,0,0,0"/>
+                    </StackPanel>
+
+                    <!-- Cash -->
+                    <Border Background="#11FFFFFF" CornerRadius="8" Padding="14,12" Margin="0,0,0,10">
+                        <Grid>
+                            <TextBlock Text="💵 Cash" Style="{StaticResource Caption}" Foreground="#10B981" FontWeight="SemiBold"/>
+                            <TextBlock Text="{Binding CashPaymentsToday, StringFormat='₹{0:N2}'}" FontSize="16" FontWeight="Bold" Foreground="White" HorizontalAlignment="Right"/>
+                        </Grid>
+                    </Border>
+                             
+                    <!-- UPI -->
+                    <Border Background="#11FFFFFF" CornerRadius="8" Padding="14,12" Margin="0,0,0,10">
+                        <Grid>
+                            <TextBlock Text="📱 UPI" Style="{StaticResource Caption}" Foreground="#3B82F6" FontWeight="SemiBold"/>
+                            <TextBlock Text="{Binding UpiPaymentsToday, StringFormat='₹{0:N2}'}" FontSize="16" FontWeight="Bold" Foreground="White" HorizontalAlignment="Right"/>
+                        </Grid>
+                    </Border>
+
+                    <!-- Other -->
+                    <Border Background="#11FFFFFF" CornerRadius="8" Padding="14,12" Margin="0,0,0,0">
+                        <Grid>
+                            <TextBlock Text="💳 Card / Other" Style="{StaticResource Caption}" Foreground="#F59E0B" FontWeight="SemiBold"/>
+                            <TextBlock Text="{Binding OtherPaymentsToday, StringFormat='₹{0:N2}'}" FontSize="16" FontWeight="Bold" Foreground="White" HorizontalAlignment="Right"/>
+                        </Grid>
+                    </Border>
+                </StackPanel>
+            </Border>
+        </Grid>
+
         </StackPanel>
     </ScrollViewer>
+    
+    <!-- ── Popup Overlay ────────────────────────────────────────────── -->
+    <Grid Margin="-20,-16,-20,-16"
+          Background="#D8000000"
+          Visibility="{Binding ShowInvoiceDialog, Converter={StaticResource BoolToVis}}"
+          Panel.ZIndex="1000">
+        <Border Style="{StaticResource GlassCard}"
+                Background="#F80D0D1F"
+                VerticalAlignment="Center" HorizontalAlignment="Center"
+                Width="500" Padding="0" MaxHeight="600">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <Border Grid.Row="0" Background="#0D0D20" CornerRadius="12,12,0,0" Padding="18,14">
+                    <Grid>
+                        <StackPanel>
+                            <TextBlock Text="INVOICE DETAILS" FontSize="9" FontWeight="Bold" Opacity="0.4" Foreground="White" Margin="0,0,0,3"/>
+                            <TextBlock Text="{Binding SelectedInvoice.SaleId}" FontSize="16" FontWeight="Bold" Foreground="{StaticResource AccentPrimaryBrush}"/>
+                            <TextBlock Text="{Binding SelectedInvoice.SaleDate, StringFormat='dd MMM yyyy, HH:mm'}" Style="{StaticResource Caption}" Margin="0,2,0,0"/>
+                        </StackPanel>
+                        <Button Style="{StaticResource BtnIcon}" Command="{Binding CloseInvoiceCommand}" HorizontalAlignment="Right" VerticalAlignment="Top" Width="28" Height="28">
+                            <TextBlock Text="✕" FontSize="11" Foreground="{StaticResource TextDimBrush}"/>
+                        </Button>
+                    </Grid>
+                </Border>
+
+                <DataGrid Grid.Row="1" ItemsSource="{Binding SelectedInvoice.Items}" Style="{StaticResource GlassGrid}" AutoGenerateColumns="False" IsReadOnly="True" Margin="0,10,0,10">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Product" Binding="{Binding Name}" Width="*"/>
+                        <DataGridTextColumn Header="Qty" Binding="{Binding Quantity}" Width="40"/>
+                        <DataGridTextColumn Header="Price" Binding="{Binding UnitPrice, StringFormat='₹{0:N2}'}" Width="70"/>
+                        <DataGridTextColumn Header="Disc%" Binding="{Binding DiscountPercent, StringFormat='{}{0}%'}" Width="48"/>
+                        <DataGridTextColumn Header="Total" Binding="{Binding Total, StringFormat='₹{0:N2}'}" Width="70"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+
+                <Border Grid.Row="2" Background="#0A0A18" CornerRadius="0,0,12,12" Padding="16,10" BorderBrush="#18FFFFFF" BorderThickness="0,1,0,0">
+                    <Grid>
+                        <TextBlock Text="TOTAL PAYABLE" FontSize="12" FontWeight="Bold" Foreground="White" VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding SelectedInvoice.Total, StringFormat='₹{0:N2}'}" FontSize="18" FontWeight="Bold" Foreground="{StaticResource AccentPrimaryBrush}" HorizontalAlignment="Right"/>
+                    </Grid>
+                </Border>
+            </Grid>
+        </Border>
+    </Grid>
+    </Grid>
 </UserControl>

@@ -36,9 +36,9 @@ namespace YAInventory.Models
         [Index(5)]
         public string Category { get; set; } = "General";
 
-        /// <summary>Product-level default discount percentage (0-100).</summary>
+        /// <summary>Sale price (discounted price). 0 means no sale — use regular Price.</summary>
         [Index(6)]
-        public decimal DefaultDiscount { get; set; }
+        public decimal SalePrice { get; set; }
 
         [Index(7)]
         public string? ImagePath { get; set; }
@@ -72,6 +72,16 @@ namespace YAInventory.Models
             StockStatus.OutOfStock => "Out of Stock",
             _                      => "Deleted"
         };
+
+        /// <summary>Effective selling price (SalePrice if set, otherwise Price).</summary>
+        [Ignore]
+        [BsonIgnore]
+        public decimal EffectivePrice => SalePrice > 0 ? SalePrice : Price;
+
+        /// <summary>Discount amount per unit (Price - EffectivePrice).</summary>
+        [Ignore]
+        [BsonIgnore]
+        public decimal UnitDiscount => Price - EffectivePrice;
 
         private static string GenerateId() =>
             Guid.NewGuid().ToString("N")[..8].ToUpper();

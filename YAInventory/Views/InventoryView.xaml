@@ -2,7 +2,9 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="clr-namespace:YAInventory.ViewModels"
-             FontFamily="Segoe UI">
+             FontFamily="Segoe UI"
+             PreviewTextInput="UserControl_PreviewTextInput"
+             PreviewKeyDown="UserControl_PreviewKeyDown">
     <Grid Margin="20,16,20,16">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>  <!-- Header      -->
@@ -158,7 +160,7 @@
                     <DataGridTextColumn Header="Category" Binding="{Binding Category}" Width="110"/>
                     <DataGridTextColumn Header="Price"    Binding="{Binding Price, StringFormat='₹{0:N2}'}" Width="90"/>
                     <DataGridTextColumn Header="Qty"      Binding="{Binding Quantity}" Width="60"/>
-                    <DataGridTextColumn Header="Disc %"   Binding="{Binding DefaultDiscount, StringFormat='{}{0}%'}" Width="65"/>
+                    <DataGridTextColumn Header="Sale ₹"  Binding="{Binding SalePrice, StringFormat='₹{0:N2}'}" Width="80"/>
 
                     <!-- Stock status badge column -->
                     <DataGridTemplateColumn Header="Status" Width="105">
@@ -176,7 +178,7 @@
                     </DataGridTemplateColumn>
 
                     <!-- Actions column -->
-                    <DataGridTemplateColumn Header="Actions" Width="100">
+                    <DataGridTemplateColumn Header="Actions" Width="140">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
                                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
@@ -187,6 +189,14 @@
                                             ToolTip="Edit" Width="28" Height="28"
                                             Background="#156366F1" Margin="0,0,6,0">
                                         <TextBlock Text="✏️" FontSize="12"/>
+                                    </Button>
+                                    <Button Style="{StaticResource BtnIcon}"
+                                            Command="{Binding DataContext.UpdateQtyCommand,
+                                                RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                            CommandParameter="{Binding}"
+                                            ToolTip="Update Quantity" Width="28" Height="28"
+                                            Background="#1522C55E" Margin="0,0,6,0">
+                                        <TextBlock Text="📦" FontSize="12"/>
                                     </Button>
                                     <Button Style="{StaticResource BtnIcon}"
                                             Command="{Binding DataContext.DeleteProductCommand,
@@ -277,11 +287,13 @@
                                      Text="{Binding DialogProduct.Quantity, UpdateSourceTrigger=PropertyChanged}"/>
                         </StackPanel>
 
-                        <!-- Discount -->
+                        <!-- Sale Price -->
                         <StackPanel Grid.Row="3" Grid.Column="0" Margin="0,0,8,0">
-                            <TextBlock Text="Default Discount %" Style="{StaticResource FormLabel}"/>
+                            <TextBlock Text="Sale Price (₹)" Style="{StaticResource FormLabel}"/>
                             <TextBox Style="{StaticResource GlassInput}"
-                                     Text="{Binding DialogProduct.DefaultDiscount, UpdateSourceTrigger=PropertyChanged}"/>
+                                     Text="{Binding DialogProduct.SalePrice, UpdateSourceTrigger=PropertyChanged, StringFormat='N2'}"/>
+                            <TextBlock Text="Leave 0 to sell at regular price" 
+                                       Foreground="{StaticResource TextDimBrush}" FontSize="9" Margin="2,2,0,0"/>
                         </StackPanel>
                     </Grid>
 
@@ -295,6 +307,86 @@
                         <Button Style="{StaticResource BtnPrimary}"
                                 Command="{Binding SaveProductCommand}"
                                 Content="Save Product" Width="120"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- ── Update Quantity dialog overlay ──────────────────────── -->
+        <Grid Grid.Row="0" Grid.RowSpan="4"
+              Visibility="{Binding ShowQtyDialog, Converter={StaticResource BoolToVis}}"
+              Background="#B5000010" ZIndex="50">
+            <Border HorizontalAlignment="Center" VerticalAlignment="Center"
+                    Width="420" MaxWidth="460" MinWidth="300"
+                    Style="{StaticResource GlassCard}"
+                    Background="#1A1F3A" Padding="28,24" Margin="0">
+                <Border.Effect>
+                    <DropShadowEffect Color="#22C55E" BlurRadius="30" ShadowDepth="0" Opacity="0.35"/>
+                </Border.Effect>
+                <StackPanel>
+                    <!-- Title -->
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                        <TextBlock Text="📦" FontSize="20" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <TextBlock Text="Add Stock" Style="{StaticResource H2}"/>
+                    </StackPanel>
+
+                    <!-- Product name -->
+                    <TextBlock Text="{Binding QtyDialogProduct.Name}"
+                               Foreground="{StaticResource TextDimBrush}"
+                               FontSize="12" Margin="0,0,0,12"
+                               TextTrimming="CharacterEllipsis"/>
+
+                    <Separator Margin="0,0,0,16"/>
+
+                    <!-- Current qty info + preview -->
+                    <Border Background="#12FFFFFF" CornerRadius="8" Padding="12,10" Margin="0,0,0,14">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <!-- Current -->
+                            <StackPanel Grid.Column="0" Orientation="Horizontal">
+                                <TextBlock Text="Current: " Foreground="{StaticResource TextDimBrush}" FontSize="12" VerticalAlignment="Center"/>
+                                <TextBlock Text="{Binding QtyDialogProduct.Quantity}"
+                                           Foreground="{StaticResource AccentPrimaryBrush}"
+                                           FontSize="13" FontWeight="Bold" VerticalAlignment="Center"/>
+                            </StackPanel>
+                            <!-- + -->
+                            <TextBlock Grid.Column="1" Text=" + " Foreground="{StaticResource TextDimBrush}" FontSize="13" VerticalAlignment="Center"/>
+                            <!-- Added -->
+                            <TextBlock Grid.Column="2" Text="{Binding NewQuantity}"
+                                       Foreground="#22C55E" FontSize="13" FontWeight="Bold" VerticalAlignment="Center"/>
+                            <!-- = -->
+                            <TextBlock Grid.Column="3" Text=" = " Foreground="{StaticResource TextDimBrush}" FontSize="13" VerticalAlignment="Center"/>
+                            <!-- Total -->
+                            <TextBlock Grid.Column="4" Text="{Binding QtyPreviewTotal}"
+                                       Foreground="White" FontSize="13" FontWeight="Bold" VerticalAlignment="Center"/>
+                        </Grid>
+                    </Border>
+
+                    <!-- Qty to add input -->
+                    <TextBlock Text="Quantity to Add *" Style="{StaticResource FormLabel}" Margin="0,0,0,6"/>
+                    <TextBox Style="{StaticResource GlassInput}"
+                             Text="{Binding NewQuantity, UpdateSourceTrigger=PropertyChanged}"
+                             Margin="0,0,0,16"
+                             x:Name="QtyInputBox"/>
+
+                    <Separator Margin="0,0,0,14"/>
+
+                    <!-- Buttons -->
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                        <Button Style="{StaticResource BtnSecondary}"
+                                Command="{Binding CancelQtyDialogCommand}"
+                                Content="Cancel" Width="90" Margin="0"/>
+                        <Button Style="{StaticResource BtnPrimary}"
+                                Command="{Binding SaveQtyCommand}"
+                                Content="Update Qty" Width="120"
+                                Background="#22C55E"/>
                     </StackPanel>
                 </StackPanel>
             </Border>

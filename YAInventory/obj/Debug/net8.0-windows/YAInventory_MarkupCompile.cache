@@ -1,5 +1,5 @@
 ﻿YAInventory
-1.0.0.0
+
 
 winexe
 C#
@@ -12,9 +12,9 @@ TRACE;DEBUG;NET;NET8_0;NETCOREAPP;WINDOWS;WINDOWS7_0;NET5_0_OR_GREATER;NET6_0_OR
 C:\Projects\YA Inventory\YAInventory\App.xaml
 92131248597
 
-401257067778
+39-1439588654
 230-148933007
 MainWindow.xaml;Resources\Colors.xaml;Resources\Styles.xaml;Views\BillingView.xaml;Views\DashboardView.xaml;Views\InventoryView.xaml;Views\ReceiptHistoryView.xaml;Views\ReportsView.xaml;Views\SettingsView.xaml;
 
-True
+False
 
